@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import time
@@ -6,6 +7,10 @@ import requests  # type: ignore[import-untyped]
 from dotenv import load_dotenv  # type: ignore[import-untyped]
 
 load_dotenv()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--rebuild-toydetails", action="store_true", help="Fetch toy details from the API and rebuild toy_details.json")
+args = parser.parse_args()
 
 # ---------------------------------------------------------------------------
 # Configuration — loaded from .env file
@@ -59,21 +64,34 @@ ids: list[int] = sorted({int(toy["id"]) for toy in source["toys"]})
 print(f"Extracted {len(ids)} toy IDs (in memory)")
 
 # ---------------------------------------------------------------------------
-# Step 2: Fetch full toy details for every ID
+# Step 2: Fetch full toy details for every ID (only when --rebuild-toydetails)
 # ---------------------------------------------------------------------------
-toy_details: list[dict[str, Any]] = []
+if args.rebuild_toydetails:
+    toy_details: list[dict[str, Any]] = []
 
-for toy_id in ids:
-    token = get_token()
-    url = TOY_API_URL.format(id=toy_id)
-    resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
-    if resp.status_code == 200:
-        toy_details.append(resp.json())
-        print(f"  ✓ {toy_id}")
-    else:
-        print(f"  ✗ {toy_id} — HTTP {resp.status_code}")
+    for toy_id in ids:
+        token = get_token()
+        url = TOY_API_URL.format(id=toy_id)
+        resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
+        if resp.status_code == 200:
+            toy_details.append(resp.json())
+            print(f"  ✓ {toy_id}")
+        else:
+            print(f"  ✗ {toy_id} — HTTP {resp.status_code}")
 
-with open("toy_details.json", "w") as f:
-    json.dump(toy_details, f, indent=2)
+    with open("toy_details.json", "w") as f:
+        json.dump(toy_details, f, indent=2)
 
-print(f"\nDone. {len(toy_details)}/{len(ids)} toys fetched → toy_details.json")
+    print(f"\nDone. {len(toy_details)}/{len(ids)} toys fetched → toy_details.json")
+else:
+    print("Skipping toy details fetch. Pass --rebuild-toydetails to rebuild toy_details.json.")
+
+# ---------------------------------------------------------------------------
+# Step 3: Read toy_details.json and extract item IDs
+# ---------------------------------------------------------------------------
+with open("toy_details.json", "r") as f:
+    toy_details_raw: list[dict[str, Any]] = json.load(f)
+
+item_ids: list[int] = [int(toy["item"]["id"]) for toy in toy_details_raw if "item" in toy]
+
+print(f"Extracted {len(item_ids)} item IDs from toy details (in memory)")
