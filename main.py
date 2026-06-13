@@ -1,4 +1,5 @@
 import argparse
+import collections
 import json
 import os
 import sqlite3
@@ -25,6 +26,66 @@ ITEM_API_URL: str = "https://us.api.blizzard.com/data/wow/item/{itemid}?namespac
 DB_PATH: str = "toys.db"
 # Refresh the token this many seconds before it actually expires
 TOKEN_REFRESH_BUFFER: int = 60
+
+# ---------------------------------------------------------------------------
+# Rate limiter — 100 req/s and 36,000 req/hr
+# ---------------------------------------------------------------------------
+_PER_SECOND_LIMIT: int = 100
+_PER_HOUR_LIMIT: int = 36_000
+_MAX_RETRIES: int = 5
+
+# Sliding windows: store the timestamp of each request
+_second_window: collections.deque[float] = collections.deque()
+_hour_window: collections.deque[float] = collections.deque()
+
+
+def _throttle() -> None:
+    """Block until it is safe to issue the next request."""
+    now = time.monotonic()
+
+    # Evict timestamps outside the 1-second and 3600-second windows
+    while _second_window and now - _second_window[0] >= 1.0:
+        _second_window.popleft()
+    while _hour_window and now - _hour_window[0] >= 3600.0:
+        _hour_window.popleft()
+
+    # If at the per-second cap, sleep until the oldest request in the window ages out
+    if len(_second_window) >= _PER_SECOND_LIMIT:
+        sleep_for = 1.0 - (now - _second_window[0]) + 0.001
+        if sleep_for > 0:
+            time.sleep(sleep_for)
+        now = time.monotonic()
+        while _second_window and now - _second_window[0] >= 1.0:
+            _second_window.popleft()
+
+    # If at the hourly cap, sleep until the oldest request in the window ages out
+    if len(_hour_window) >= _PER_HOUR_LIMIT:
+        sleep_for = 3600.0 - (now - _hour_window[0]) + 0.001
+        print(f"  [throttle] Hourly quota reached. Sleeping {sleep_for:.1f}s...")
+        time.sleep(sleep_for)
+        now = time.monotonic()
+        while _hour_window and now - _hour_window[0] >= 3600.0:
+            _hour_window.popleft()
+
+    _second_window.append(time.monotonic())
+    _hour_window.append(time.monotonic())
+
+
+def api_get(url: str, headers: dict[str, str]) -> requests.Response:
+    """GET with automatic throttling and 429 retry."""
+    resp: requests.Response | None = None
+    for attempt in range(1, _MAX_RETRIES + 1):
+        _throttle()
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code != 429:
+            return resp
+        # 429 — wait out the remainder of the current second then retry
+        retry_after = float(resp.headers.get("Retry-After", "1"))
+        print(f"  [throttle] 429 received, waiting {retry_after:.2f}s (attempt {attempt}/{_MAX_RETRIES})...")
+        time.sleep(retry_after)
+    if resp is None:
+        raise RuntimeError("api_get: no response after retries")
+    return resp  # return final response even if still 429
 
 # ---------------------------------------------------------------------------
 # Bearer token state
@@ -136,8 +197,7 @@ if args.rebuild_toydetails:
 
     for i, toy_id in enumerate(ids, start=1):
         token = get_token()
-        url = TOY_API_URL.format(id=toy_id)
-        resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
+        resp = api_get(TOY_API_URL.format(id=toy_id), headers={"Authorization": f"Bearer {token}"})
         if resp.status_code == 200:
             t: dict[str, Any] = resp.json()
             item: dict[str, Any] = t.get("item", {})
@@ -191,8 +251,7 @@ if args.rebuild_itemdetails:
 
     for i, item_id in enumerate(item_ids, start=1):
         token = get_token()
-        url = ITEM_API_URL.format(itemid=item_id)
-        resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
+        resp = api_get(ITEM_API_URL.format(itemid=item_id), headers={"Authorization": f"Bearer {token}"})
         if resp.status_code == 200:
             it: dict[str, Any] = resp.json()
             preview: dict[str, Any] = it.get("preview_item", {})
