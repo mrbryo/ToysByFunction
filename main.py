@@ -10,6 +10,7 @@ load_dotenv()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--rebuild-toydetails", action="store_true", help="Fetch toy details from the API and rebuild toy_details.json")
+parser.add_argument("--rebuild-itemdetails", action="store_true", help="Fetch item details from the API and rebuild toy_item_details.json")
 args = parser.parse_args()
 
 # ---------------------------------------------------------------------------
@@ -19,6 +20,7 @@ CLIENT_ID: str = os.environ.get("BNET_CLIENT_ID", "")
 CLIENT_SECRET: str = os.environ.get("BNET_CLIENT_SECRET", "")
 TOKEN_URL: str = "https://oauth.battle.net/token"
 TOY_API_URL: str = "https://us.api.blizzard.com/data/wow/toy/{id}?namespace=static-us&:region=us"
+ITEM_API_URL: str = "https://us.api.blizzard.com/data/wow/item/{itemid}?namespace=static-us&:region=us"
 # Refresh the token this many seconds before it actually expires
 TOKEN_REFRESH_BUFFER: int = 60
 
@@ -89,9 +91,50 @@ else:
 # ---------------------------------------------------------------------------
 # Step 3: Read toy_details.json and extract item IDs
 # ---------------------------------------------------------------------------
-with open("toy_details.json", "r") as f:
-    toy_details_raw: list[dict[str, Any]] = json.load(f)
+try:
+    with open("toy_details.json", "r") as f:
+        toy_details_raw: list[dict[str, Any]] = json.load(f)
+except FileNotFoundError:
+    print("Error: toy_details.json not found. Run with --rebuild-toydetails to generate it.")
+    raise SystemExit(1)
 
 item_ids: list[int] = [int(toy["item"]["id"]) for toy in toy_details_raw if "item" in toy]
 
 print(f"Extracted {len(item_ids)} item IDs from toy details (in memory)")
+
+# ---------------------------------------------------------------------------
+# Step 4: Fetch item details for every item ID (only when --rebuild-itemdetails)
+# ---------------------------------------------------------------------------
+if args.rebuild_itemdetails:
+    toy_item_details: list[dict[str, Any]] = []
+
+    for item_id in item_ids:
+        token = get_token()
+        url = ITEM_API_URL.format(itemid=item_id)
+        resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
+        if resp.status_code == 200:
+            toy_item_details.append(resp.json())
+            print(f"  ✓ {item_id}")
+        else:
+            print(f"  ✗ {item_id} — HTTP {resp.status_code}")
+
+    with open("toy_item_details.json", "w") as f:
+        json.dump(toy_item_details, f, indent=2)
+
+    print(f"\nDone. {len(toy_item_details)}/{len(item_ids)} items fetched → toy_item_details.json")
+else:
+    print("Skipping item details fetch. Pass --rebuild-itemdetails to rebuild toy_item_details.json.")
+
+# ---------------------------------------------------------------------------
+# Step 5: Read toy_item_details.json and extract item IDs
+# ---------------------------------------------------------------------------
+try:
+    with open("toy_item_details.json", "r") as f:
+        toy_item_details_raw: list[dict[str, Any]] = json.load(f)
+except FileNotFoundError:
+    print("Error: toy_item_details.json not found. Run with --rebuild-itemdetails to generate it.")
+    raise SystemExit(1)
+
+toy_item_ids: list[int] = [int(item["id"]) for item in toy_item_details_raw if "id" in item]
+
+print(f"Extracted {len(toy_item_ids)} item IDs from toy item details (in memory)")
