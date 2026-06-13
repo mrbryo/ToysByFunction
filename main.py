@@ -56,85 +56,100 @@ def get_token() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Step 1: Extract IDs from toys.json and save as flat array
+# Step 1: Extract IDs from toys.json into memory
 # ---------------------------------------------------------------------------
+print("[Step 1] Extracting toy IDs from toys.json...")
 with open("toys.json", "r") as f:
     source: dict[str, Any] = json.load(f)
 
 ids: list[int] = sorted({int(toy["id"]) for toy in source["toys"]})
 
-print(f"Extracted {len(ids)} toy IDs (in memory)")
+print(f"[Step 1] Extracted {len(ids)} toy IDs (in memory)")
 
 # ---------------------------------------------------------------------------
 # Step 2: Fetch full toy details for every ID (only when --rebuild-toydetails)
 # ---------------------------------------------------------------------------
+print("[Step 2] Fetching toy details from API...")
 if args.rebuild_toydetails:
     toy_details: list[dict[str, Any]] = []
 
-    for toy_id in ids:
+    for i, toy_id in enumerate(ids, start=1):
         token = get_token()
         url = TOY_API_URL.format(id=toy_id)
         resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
         if resp.status_code == 200:
             toy_details.append(resp.json())
-            print(f"  ✓ {toy_id}")
         else:
             print(f"  ✗ {toy_id} — HTTP {resp.status_code}")
+        if i % 500 == 0:
+            print(f"  Processed Records {i}")
+
+    remainder = len(ids) % 500
+    if remainder > 0:
+        print(f"  Processed Records {remainder}")
 
     with open("toy_details.json", "w") as f:
         json.dump(toy_details, f, indent=2)
 
-    print(f"\nDone. {len(toy_details)}/{len(ids)} toys fetched → toy_details.json")
+    print(f"[Step 2] Done. {len(toy_details)}/{len(ids)} toys fetched → toy_details.json")
 else:
-    print("Skipping toy details fetch. Pass --rebuild-toydetails to rebuild toy_details.json.")
+    print("[Step 2] Skipping. Pass --rebuild-toydetails to rebuild toy_details.json.")
 
 # ---------------------------------------------------------------------------
 # Step 3: Read toy_details.json and extract item IDs
 # ---------------------------------------------------------------------------
+print("[Step 3] Reading toy_details.json and extracting item IDs...")
 try:
     with open("toy_details.json", "r") as f:
         toy_details_raw: list[dict[str, Any]] = json.load(f)
 except FileNotFoundError:
-    print("Error: toy_details.json not found. Run with --rebuild-toydetails to generate it.")
+    print("[Step 3] Error: toy_details.json not found. Run with --rebuild-toydetails to generate it.")
     raise SystemExit(1)
 
 item_ids: list[int] = [int(toy["item"]["id"]) for toy in toy_details_raw if "item" in toy]
 
-print(f"Extracted {len(item_ids)} item IDs from toy details (in memory)")
+print(f"[Step 3] Extracted {len(item_ids)} item IDs from toy details (in memory)")
 
 # ---------------------------------------------------------------------------
 # Step 4: Fetch item details for every item ID (only when --rebuild-itemdetails)
 # ---------------------------------------------------------------------------
+print("[Step 4] Fetching item details from API...")
 if args.rebuild_itemdetails:
     toy_item_details: list[dict[str, Any]] = []
 
-    for item_id in item_ids:
+    for i, item_id in enumerate(item_ids, start=1):
         token = get_token()
         url = ITEM_API_URL.format(itemid=item_id)
         resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
         if resp.status_code == 200:
             toy_item_details.append(resp.json())
-            print(f"  ✓ {item_id}")
         else:
             print(f"  ✗ {item_id} — HTTP {resp.status_code}")
+        if i % 500 == 0:
+            print(f"  Processed Records {i}")
+
+    remainder = len(item_ids) % 500
+    if remainder > 0:
+        print(f"  Processed Records {remainder}")
 
     with open("toy_item_details.json", "w") as f:
         json.dump(toy_item_details, f, indent=2)
 
-    print(f"\nDone. {len(toy_item_details)}/{len(item_ids)} items fetched → toy_item_details.json")
+    print(f"[Step 4] Done. {len(toy_item_details)}/{len(item_ids)} items fetched → toy_item_details.json")
 else:
-    print("Skipping item details fetch. Pass --rebuild-itemdetails to rebuild toy_item_details.json.")
+    print("[Step 4] Skipping. Pass --rebuild-itemdetails to rebuild toy_item_details.json.")
 
 # ---------------------------------------------------------------------------
 # Step 5: Read toy_item_details.json and extract item IDs
 # ---------------------------------------------------------------------------
+print("[Step 5] Reading toy_item_details.json and extracting item IDs...")
 try:
     with open("toy_item_details.json", "r") as f:
         toy_item_details_raw: list[dict[str, Any]] = json.load(f)
 except FileNotFoundError:
-    print("Error: toy_item_details.json not found. Run with --rebuild-itemdetails to generate it.")
+    print("[Step 5] Error: toy_item_details.json not found. Run with --rebuild-itemdetails to generate it.")
     raise SystemExit(1)
 
 toy_item_ids: list[int] = [int(item["id"]) for item in toy_item_details_raw if "id" in item]
 
-print(f"Extracted {len(toy_item_ids)} item IDs from toy item details (in memory)")
+print(f"[Step 5] Extracted {len(toy_item_ids)} item IDs from toy item details (in memory)")
