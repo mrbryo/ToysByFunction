@@ -1,6 +1,5 @@
 import argparse
 import collections
-import json
 import os
 import sqlite3
 import time
@@ -13,6 +12,7 @@ load_dotenv()
 parser = argparse.ArgumentParser()
 parser.add_argument("--rebuild-toydetails", action="store_true", help="Fetch toy details from the API and repopulate the toys table")
 parser.add_argument("--rebuild-itemdetails", action="store_true", help="Fetch item details from the API and repopulate the items/item_spells tables")
+parser.add_argument("--rebuild-toyindex", action="store_true", help="Fetch the toy index from the API and seed toy IDs into the toys table")
 args = parser.parse_args()
 
 # ---------------------------------------------------------------------------
@@ -21,9 +21,11 @@ args = parser.parse_args()
 CLIENT_ID: str = os.environ.get("BNET_CLIENT_ID", "")
 CLIENT_SECRET: str = os.environ.get("BNET_CLIENT_SECRET", "")
 TOKEN_URL: str = "https://oauth.battle.net/token"
+TOY_INDEX_URL: str = "https://us.api.blizzard.com/data/wow/toy/index?namespace=static-us&:region=us"
 TOY_API_URL: str = "https://us.api.blizzard.com/data/wow/toy/{id}?namespace=static-us&:region=us"
 ITEM_API_URL: str = "https://us.api.blizzard.com/data/wow/item/{itemid}?namespace=static-us&:region=us"
 DB_PATH: str = "toys.db"
+SCHEMA_VERSION: int = 1
 # Refresh the token this many seconds before it actually expires
 TOKEN_REFRESH_BUFFER: int = 60
 
@@ -127,73 +129,109 @@ def loc(obj: Any, key: str = "en_US") -> str:
 
 
 # ---------------------------------------------------------------------------
-# Database setup
+# Database setup — reuse if exists, create if not
 # ---------------------------------------------------------------------------
-print("[DB] Initializing SQLite database...")
+db_exists: bool = os.path.exists(DB_PATH)
+print(f"[DB] {'Opening existing' if db_exists else 'Creating new'} database...")
 db: sqlite3.Connection = sqlite3.connect(DB_PATH)
 db.execute("PRAGMA foreign_keys = ON")
-db.executescript("""
-    CREATE TABLE IF NOT EXISTS toys (
-        id                      INTEGER PRIMARY KEY,
-        item_id                 INTEGER NOT NULL,
-        item_name               TEXT,
-        source_type             TEXT,
-        source_name             TEXT,
-        source_description      TEXT,
-        media_id                INTEGER
-    );
 
-    CREATE TABLE IF NOT EXISTS items (
-        id                      INTEGER PRIMARY KEY,
-        name                    TEXT,
-        quality_type            TEXT,
-        level                   INTEGER,
-        required_level          INTEGER,
-        media_id                INTEGER,
-        item_class_id           INTEGER,
-        item_class_name         TEXT,
-        item_subclass_id        INTEGER,
-        item_subclass_name      TEXT,
-        inventory_type          TEXT,
-        purchase_price          INTEGER,
-        sell_price              INTEGER,
-        max_count               INTEGER,
-        is_equippable           INTEGER,
-        is_stackable            INTEGER,
-        purchase_quantity       INTEGER,
-        binding_type            TEXT,
-        binding_name            TEXT
-    );
+if not db_exists:
+    db.executescript("""
+        CREATE TABLE schema_version (
+            version     INTEGER NOT NULL
+        );
 
-    CREATE TABLE IF NOT EXISTS item_spells (
-        id                      INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_id                 INTEGER NOT NULL REFERENCES items(id),
-        spell_id                INTEGER,
-        spell_name              TEXT,
-        description             TEXT
-    );
-""")
-db.commit()
-print("[DB] Schema ready.")
+        CREATE TABLE toys (
+            id                      INTEGER PRIMARY KEY,
+            item_id                 INTEGER,
+            item_name               TEXT,
+            source_type             TEXT,
+            source_name             TEXT,
+            source_description      TEXT,
+            media_id                INTEGER
+        );
+
+        CREATE TABLE items (
+            id                      INTEGER PRIMARY KEY,
+            name                    TEXT,
+            quality_type            TEXT,
+            level                   INTEGER,
+            required_level          INTEGER,
+            media_id                INTEGER,
+            item_class_id           INTEGER,
+            item_class_name         TEXT,
+            item_subclass_id        INTEGER,
+            item_subclass_name      TEXT,
+            inventory_type          TEXT,
+            purchase_price          INTEGER,
+            sell_price              INTEGER,
+            max_count               INTEGER,
+            is_equippable           INTEGER,
+            is_stackable            INTEGER,
+            purchase_quantity       INTEGER,
+            binding_type            TEXT,
+            binding_name            TEXT
+        );
+
+        CREATE TABLE item_spells (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_id                 INTEGER NOT NULL REFERENCES items(id),
+            spell_id                INTEGER,
+            spell_name              TEXT,
+            description             TEXT
+        );
+    """)
+    db.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
+    db.commit()
+    print(f"[DB] Schema created at version {SCHEMA_VERSION}.")
+else:
+    stored_row = db.execute("SELECT version FROM schema_version LIMIT 1").fetchone()
+    stored: int = int(stored_row[0]) if stored_row else -1
+    if stored != SCHEMA_VERSION:
+        print(f"[DB] Warning: DB schema version {stored} differs from code version {SCHEMA_VERSION}. Migration may be needed.")
+    else:
+        print(f"[DB] Schema version {stored} confirmed.")
+
+print("[DB] Database ready.")
 
 # ---------------------------------------------------------------------------
-# Step 1: Extract IDs from toys.json into memory
+# Step 1: Fetch toy index from API and seed toy IDs into toys table
 # ---------------------------------------------------------------------------
-print("[Step 1] Extracting toy IDs from toys.json...")
-with open("toys.json", "r") as f:
-    source: dict[str, Any] = json.load(f)
-
-ids: list[int] = sorted({int(toy["id"]) for toy in source["toys"]})
-
-print(f"[Step 1] Extracted {len(ids)} toy IDs (in memory)")
+print("[Step 1] Fetching toy index from API...")
+if args.rebuild_toyindex:
+    token = get_token()
+    resp = api_get(TOY_INDEX_URL, headers={"Authorization": f"Bearer {token}"})
+    if resp.status_code != 200:
+        print(f"[Step 1] Error: API returned HTTP {resp.status_code}. Cannot seed toy IDs.")
+        raise SystemExit(1)
+    index_data: dict[str, Any] = resp.json()
+    index_toys: list[dict[str, Any]] = index_data.get("toys", [])
+    db.execute("DELETE FROM toys")
+    db.executemany(
+        "INSERT OR IGNORE INTO toys (id) VALUES (?)",
+        [(int(toy["id"]),) for toy in index_toys],
+    )
+    db.commit()
+    print(f"[Step 1] Seeded {len(index_toys)} toy IDs into toys table.")
+else:
+    count = db.execute("SELECT COUNT(*) FROM toys").fetchone()
+    existing_count: int = int(count[0]) if count else 0
+    if existing_count == 0:
+        print("[Step 1] Error: toys table is empty. Run with --rebuild-toyindex to populate it.")
+        raise SystemExit(1)
+    print(f"[Step 1] Reusing {existing_count} toy IDs already in toys table.")
 
 # ---------------------------------------------------------------------------
 # Step 2: Fetch full toy details for every ID → store in toys table
 # ---------------------------------------------------------------------------
 print("[Step 2] Fetching toy details from API...")
 if args.rebuild_toydetails:
-    db.execute("DELETE FROM toys")
-    db.commit()
+    ids_rows = db.execute("SELECT id FROM toys ORDER BY id").fetchall()
+    ids: list[int] = [int(row[0]) for row in ids_rows]
+    if not ids:
+        print("[Step 2] Error: no toy IDs in toys table. Run with --rebuild-toyindex first.")
+        raise SystemExit(1)
 
     for i, toy_id in enumerate(ids, start=1):
         token = get_token()
@@ -203,15 +241,24 @@ if args.rebuild_toydetails:
             item: dict[str, Any] = t.get("item", {})
             source_obj: dict[str, Any] = t.get("source", {})
             db.execute(
-                "INSERT OR REPLACE INTO toys VALUES (?,?,?,?,?,?,?)",
+                """
+                UPDATE toys SET
+                    item_id            = ?,
+                    item_name          = ?,
+                    source_type        = ?,
+                    source_name        = ?,
+                    source_description = ?,
+                    media_id           = ?
+                WHERE id = ?
+                """,
                 (
-                    int(t["id"]),
                     int(item.get("id", 0)),
                     loc(item.get("name")),
                     source_obj.get("type"),
                     loc(source_obj.get("name")),
                     loc(t.get("source_description")),
                     int(t.get("media", {}).get("id", 0)) or None,
+                    int(t["id"]),
                 ),
             )
         else:
@@ -220,11 +267,9 @@ if args.rebuild_toydetails:
             db.commit()
             print(f"  Processed Records {i}")
 
-    remainder = len(ids) % 500
-    if remainder > 0:
-        print(f"  Processed Records {remainder}")
+    # Commit any remaining updates after the loop.
     db.commit()
-    print(f"[Step 2] Done. Toys stored in database.")
+    print(f"[Step 2] Done. Processed Records {len(ids)}. Toys stored in database.")
 else:
     print("[Step 2] Skipping. Pass --rebuild-toydetails to repopulate the toys table.")
 
@@ -234,7 +279,7 @@ else:
 print("[Step 3] Reading item IDs from toys table...")
 rows = db.execute("SELECT DISTINCT item_id FROM toys WHERE item_id > 0").fetchall()
 if not rows:
-    print("[Step 3] Error: toys table is empty. Run with --rebuild-toydetails to populate it.")
+    print("[Step 3] Error: no item_ids found. Run with --rebuild-toyindex then --rebuild-toydetails first.")
     raise SystemExit(1)
 
 item_ids: list[int] = [int(row[0]) for row in rows]
@@ -297,11 +342,9 @@ if args.rebuild_itemdetails:
             db.commit()
             print(f"  Processed Records {i}")
 
-    remainder = len(item_ids) % 500
-    if remainder > 0:
-        print(f"  Processed Records {remainder}")
+    # Commit any remaining inserts after the loop.
     db.commit()
-    print(f"[Step 4] Done. Items stored in database.")
+    print(f"[Step 4] Done. Processed Records {len(item_ids)}. Items stored in database.")
 else:
     print("[Step 4] Skipping. Pass --rebuild-itemdetails to repopulate the items/item_spells tables.")
 
