@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--rebuild-toydetails", action="store_true", help="Fetch toy details from the API and repopulate the toys table")
 parser.add_argument("--rebuild-itemdetails", action="store_true", help="Fetch item details from the API and repopulate the items/item_spells tables")
 parser.add_argument("--rebuild-toyindex", action="store_true", help="Fetch the toy index from the API and seed toy IDs into the toys table")
+parser.add_argument("--rebuild-categories", action="store_true", help="Categorize toys by function and update the toy_function column")
 args = parser.parse_args()
 
 # ---------------------------------------------------------------------------
@@ -25,7 +26,7 @@ TOY_INDEX_URL: str = "https://us.api.blizzard.com/data/wow/toy/index?namespace=s
 TOY_API_URL: str = "https://us.api.blizzard.com/data/wow/toy/{id}?namespace=static-us&:region=us"
 ITEM_API_URL: str = "https://us.api.blizzard.com/data/wow/item/{itemid}?namespace=static-us&:region=us"
 DB_PATH: str = "toys.db"
-SCHEMA_VERSION: int = 1
+SCHEMA_VERSION: int = 2
 # Refresh the token this many seconds before it actually expires
 TOKEN_REFRESH_BUFFER: int = 60
 
@@ -129,6 +130,43 @@ def loc(obj: Any, key: str = "en_US") -> str:
 
 
 # ---------------------------------------------------------------------------
+# Toy categorization rules (ordered: first match wins)
+# ---------------------------------------------------------------------------
+_CATEGORY_RULES: list[tuple[str, list[str]]] = [
+    ("Fishing",         ["fish", "fishing", "lure", "bait", "angl"]),
+    ("Transformation",  ["transform", "disguise", "look like", "take the form", "appear as",
+                         "morph", "turn into", "become a", "takes the appearance", "changes you into"]),
+    ("Costume",         ["costume", "outfit", "dressed as", "wear"]),
+    ("Mount",           ["mount", "ride "]),
+    ("Teleport",        ["teleport", "transport you", "port you"]),
+    ("Healing",         ["heal", "restore health", "restore mana"]),
+    ("Food & Drink",    ["food", "drink", "feast", "meal", "eat", "conjure"]),
+    ("Music",           ["music", "song", "instrument", "tune", "melody", "drum", "flute", "lute"]),
+    ("Fireworks",       ["firework", "launch a firework", "pyrotechnic"]),
+    ("Visual Effect",   ["visual", "confetti", "sparkle", "glow", "aura", "trail", "beam",
+                         "light", "flame", "smoke", "shadow"]),
+    ("Pet/Companion",   ["companion", "critter", "summon a ", "summons a "]),
+    ("Buff",            ["increase", "grant", "bonus", "haste", "strength", "agility",
+                         "intellect", "stamina", "critical", "speed"]),
+    ("Combat",          ["damage", "attack", "strike", "explode", "detonate", "projectile",
+                         "throw", "launch", "shoot"]),
+    ("Social/Emote",    ["dance", "cheer", "laugh", "emote", "celebrate", "wave", "salute",
+                         "clap", "bow", "flex"]),
+    ("Toy/Prop",        ["deploy", "place a ", "create a ", "spawn a ", "set up", "build"]),
+    ("Vanity",          ["vanity", "cosmetic", "aesthetic"]),
+]
+
+
+def categorize(effect: str) -> str:
+    """Return the best matching category for a toy effect description."""
+    lower = effect.lower()
+    for category, keywords in _CATEGORY_RULES:
+        if any(kw in lower for kw in keywords):
+            return category
+    return "Uncategorized"
+
+
+# ---------------------------------------------------------------------------
 # Database setup — reuse if exists, create if not
 # ---------------------------------------------------------------------------
 db_exists: bool = os.path.exists(DB_PATH)
@@ -149,7 +187,8 @@ if not db_exists:
             source_type             TEXT,
             source_name             TEXT,
             source_description      TEXT,
-            media_id                INTEGER
+            media_id                INTEGER,
+            toy_function            TEXT
         );
 
         CREATE TABLE items (
@@ -189,7 +228,18 @@ else:
     stored_row = db.execute("SELECT version FROM schema_version LIMIT 1").fetchone()
     stored: int = int(stored_row[0]) if stored_row else -1
     if stored != SCHEMA_VERSION:
-        print(f"[DB] Warning: DB schema version {stored} differs from code version {SCHEMA_VERSION}. Migration may be needed.")
+        print(f"[DB] Schema version {stored} → migrating to {SCHEMA_VERSION}...")
+        # Migration: version 1 → 2: add toy_function column
+        if stored < 2:
+            try:
+                db.execute("ALTER TABLE toys ADD COLUMN toy_function TEXT")
+                db.commit()
+                print("[DB] Migration 1→2: added toys.toy_function column.")
+            except sqlite3.OperationalError:
+                pass  # column already exists
+        db.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
+        db.commit()
+        print(f"[DB] Migration complete. Schema now at version {SCHEMA_VERSION}.")
     else:
         print(f"[DB] Schema version {stored} confirmed.")
 
@@ -359,5 +409,34 @@ if not item_rows:
 
 toy_item_ids: list[int] = [int(row[0]) for row in item_rows]
 print(f"[Step 5] Extracted {len(toy_item_ids)} item IDs from items table (in memory)")
+
+# ---------------------------------------------------------------------------
+# Step 6: Categorize toys by function using item_spells descriptions
+# ---------------------------------------------------------------------------
+print("[Step 6] Categorizing toys by function...")
+if args.rebuild_categories:
+    spell_rows = db.execute("""
+        SELECT t.id, s.description
+        FROM toys t
+        JOIN items i ON i.id = t.item_id
+        JOIN item_spells s ON s.item_id = i.id
+        WHERE s.description IS NOT NULL AND s.description != ''
+    """).fetchall()
+
+    updated = 0
+    for toy_id, description in spell_rows:
+        # Extract the toy effect — everything after the first blank line
+        sep = description.find("\n\n")
+        effect = description[sep + 2:].strip() if sep != -1 else description.strip()
+        if not effect:
+            continue
+        category = categorize(effect)
+        db.execute("UPDATE toys SET toy_function = ? WHERE id = ?", (category, toy_id))
+        updated += 1
+
+    db.commit()
+    print(f"[Step 6] Done. Categorized {updated} toys.")
+else:
+    print("[Step 6] Skipping. Pass --rebuild-categories to categorize toys.")
 
 db.close()
