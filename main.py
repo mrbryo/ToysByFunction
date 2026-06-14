@@ -14,6 +14,7 @@ parser.add_argument("--rebuild-toydetails", action="store_true", help="Fetch toy
 parser.add_argument("--rebuild-itemdetails", action="store_true", help="Fetch item details from the API and repopulate the items/item_spells tables")
 parser.add_argument("--rebuild-toyindex", action="store_true", help="Fetch the toy index from the API and seed toy IDs into the toys table")
 parser.add_argument("--rebuild-categories", action="store_true", help="Categorize toys by function and update the toy_function column")
+parser.add_argument("--rebuild-lua", action="store_true", help="Export toy data to ToyDB.lua")
 args = parser.parse_args()
 
 # ---------------------------------------------------------------------------
@@ -26,7 +27,7 @@ TOY_INDEX_URL: str = "https://us.api.blizzard.com/data/wow/toy/index?namespace=s
 TOY_API_URL: str = "https://us.api.blizzard.com/data/wow/toy/{id}?namespace=static-us&:region=us"
 ITEM_API_URL: str = "https://us.api.blizzard.com/data/wow/item/{itemid}?namespace=static-us&:region=us"
 DB_PATH: str = "toys.db"
-SCHEMA_VERSION: int = 2
+SCHEMA_VERSION: int = 3
 # Refresh the token this many seconds before it actually expires
 TOKEN_REFRESH_BUFFER: int = 60
 
@@ -130,40 +131,38 @@ def loc(obj: Any, key: str = "en_US") -> str:
 
 
 # ---------------------------------------------------------------------------
-# Toy categorization rules (ordered: first match wins)
+# Toy tag rules — ALL matching tags are applied (lowercase, lua-safe)
 # ---------------------------------------------------------------------------
-_CATEGORY_RULES: list[tuple[str, list[str]]] = [
-    ("Fishing",         ["fish", "fishing", "lure", "bait", "angl"]),
-    ("Transformation",  ["transform", "disguise", "look like", "take the form", "appear as",
-                         "morph", "turn into", "become a", "takes the appearance", "changes you into"]),
-    ("Costume",         ["costume", "outfit", "dressed as", "wear"]),
-    ("Mount",           ["mount", "ride "]),
-    ("Teleport",        ["teleport", "transport you", "port you"]),
-    ("Healing",         ["heal", "restore health", "restore mana"]),
-    ("Food & Drink",    ["food", "drink", "feast", "meal", "eat", "conjure"]),
-    ("Music",           ["music", "song", "instrument", "tune", "melody", "drum", "flute", "lute"]),
-    ("Fireworks",       ["firework", "launch a firework", "pyrotechnic"]),
-    ("Visual Effect",   ["visual", "confetti", "sparkle", "glow", "aura", "trail", "beam",
-                         "light", "flame", "smoke", "shadow"]),
-    ("Pet/Companion",   ["companion", "critter", "summon a ", "summons a "]),
-    ("Buff",            ["increase", "grant", "bonus", "haste", "strength", "agility",
-                         "intellect", "stamina", "critical", "speed"]),
-    ("Combat",          ["damage", "attack", "strike", "explode", "detonate", "projectile",
-                         "throw", "launch", "shoot"]),
-    ("Social/Emote",    ["dance", "cheer", "laugh", "emote", "celebrate", "wave", "salute",
-                         "clap", "bow", "flex"]),
-    ("Toy/Prop",        ["deploy", "place a ", "create a ", "spawn a ", "set up", "build"]),
-    ("Vanity",          ["vanity", "cosmetic", "aesthetic"]),
+_TAG_RULES: list[tuple[str, list[str]]] = [
+    ("fishing",        ["fish", "fishing", "lure", "bait", "angl"]),
+    ("transformation", ["transform", "disguise", "look like", "take the form", "appear as",
+                        "morph", "turn into", "become a", "takes the appearance", "changes you into"]),
+    ("costume",        ["costume", "outfit", "dressed as", "wear"]),
+    ("mount",          ["mount", "ride "]),
+    ("teleport",       ["teleport", "transport you", "port you"]),
+    ("healing",        ["heal", "restore health", "restore mana"]),
+    ("food_and_drink", ["food", "drink", "feast", "meal", "eat", "conjure"]),
+    ("music",          ["music", "song", "instrument", "tune", "melody", "drum", "flute", "lute"]),
+    ("fireworks",      ["firework", "launch a firework", "pyrotechnic"]),
+    ("visual_effect",  ["confetti", "sparkle", "glow", "aura", "trail", "beam",
+                        "flame", "smoke", "shadow"]),
+    ("pet",            ["companion", "critter", "summon a ", "summons a "]),
+    ("buff",           ["increase", "grant", "bonus", "haste", "strength", "agility",
+                        "intellect", "stamina", "critical", "speed"]),
+    ("combat",         ["damage", "attack", "strike", "explode", "detonate", "projectile",
+                        "throw", "launch", "shoot"]),
+    ("social",         ["dance", "cheer", "laugh", "emote", "celebrate", "wave", "salute",
+                        "clap", "bow", "flex"]),
+    ("prop",           ["deploy", "place a ", "create a ", "spawn a ", "set up", "build"]),
+    ("vanity",         ["vanity", "cosmetic", "aesthetic"]),
 ]
 
 
-def categorize(effect: str) -> str:
-    """Return the best matching category for a toy effect description."""
+def get_tags(effect: str) -> list[str]:
+    """Return all matching tags for a toy effect description."""
     lower = effect.lower()
-    for category, keywords in _CATEGORY_RULES:
-        if any(kw in lower for kw in keywords):
-            return category
-    return "Uncategorized"
+    tags = [tag for tag, keywords in _TAG_RULES if any(kw in lower for kw in keywords)]
+    return tags if tags else ["uncategorized"]
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +219,12 @@ if not db_exists:
             spell_name              TEXT,
             description             TEXT
         );
+
+        CREATE TABLE toy_tags (
+            toy_id  INTEGER NOT NULL REFERENCES toys(id),
+            tag     TEXT NOT NULL,
+            PRIMARY KEY (toy_id, tag)
+        );
     """)
     db.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
     db.commit()
@@ -237,6 +242,20 @@ else:
                 print("[DB] Migration 1→2: added toys.toy_function column.")
             except sqlite3.OperationalError:
                 pass  # column already exists
+        # Migration: version 2 → 3: add toy_tags table
+        if stored < 3:
+            try:
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS toy_tags (
+                        toy_id  INTEGER NOT NULL REFERENCES toys(id),
+                        tag     TEXT NOT NULL,
+                        PRIMARY KEY (toy_id, tag)
+                    )
+                """)
+                db.commit()
+                print("[DB] Migration 2→3: created toy_tags table.")
+            except sqlite3.OperationalError:
+                pass  # table already exists
         db.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
         db.commit()
         print(f"[DB] Migration complete. Schema now at version {SCHEMA_VERSION}.")
@@ -423,6 +442,7 @@ if args.rebuild_categories:
         WHERE s.description IS NOT NULL AND s.description != ''
     """).fetchall()
 
+    db.execute("DELETE FROM toy_tags")
     updated = 0
     for toy_id, description in spell_rows:
         # Extract the toy effect — everything after the first blank line
@@ -430,13 +450,80 @@ if args.rebuild_categories:
         effect = description[sep + 2:].strip() if sep != -1 else description.strip()
         if not effect:
             continue
-        category = categorize(effect)
-        db.execute("UPDATE toys SET toy_function = ? WHERE id = ?", (category, toy_id))
+        tags = get_tags(effect)
+        db.executemany(
+            "INSERT OR IGNORE INTO toy_tags (toy_id, tag) VALUES (?, ?)",
+            [(toy_id, tag) for tag in tags],
+        )
         updated += 1
 
     db.commit()
-    print(f"[Step 6] Done. Categorized {updated} toys.")
+    print(f"[Step 6] Done. Tagged {updated} toys.")
 else:
-    print("[Step 6] Skipping. Pass --rebuild-categories to categorize toys.")
+    print("[Step 6] Skipping. Pass --rebuild-categories to tag toys.")
+
+# ---------------------------------------------------------------------------
+# Step 7: Export ToyDB.lua
+# ---------------------------------------------------------------------------
+print("[Step 7] Exporting ToyDB.lua...")
+if args.rebuild_lua:
+    lua_rows = db.execute("""
+        SELECT t.id, t.item_id, GROUP_CONCAT(tt.tag, ',')
+        FROM toys t
+        LEFT JOIN toy_tags tt ON tt.toy_id = t.id
+        WHERE t.item_id IS NOT NULL AND t.item_id > 0
+        GROUP BY t.id
+        ORDER BY t.id
+    """).fetchall()
+
+    lua_path = os.path.join(os.path.dirname(DB_PATH), "..", "addon", "ToyDB.lua")
+    lua_path = os.path.normpath(lua_path)
+
+    with open(lua_path, "w", encoding="utf-8") as f:
+        f.write("-- ToyDB.lua\n")
+        f.write("-- Auto-generated by main.py — do not edit manually.\n\n")
+        f.write("ToysByFunctionDB = ToysByFunctionDB or {}\n\n")
+        f.write("ToysByFunctionDB.toys = {\n")
+        for toy_id, item_id, tags_str in lua_rows:
+            tags: list[str] = tags_str.split(",") if tags_str else ["uncategorized"]
+            tag_lua = ", ".join(f'"{t}"' for t in tags)
+            f.write(f"    [{toy_id}] = {{ itemId = {item_id}, tags = {{ {tag_lua} }} }},\n")
+        f.write("}\n\n")
+
+        f.write("-- Build reverse indexes\n")
+        f.write("ToysByFunctionDB._byItemId = {}\n")
+        f.write("ToysByFunctionDB._byTag = {}\n\n")
+        f.write("for toyId, data in pairs(ToysByFunctionDB.toys) do\n")
+        f.write("    ToysByFunctionDB._byItemId[data.itemId] = toyId\n")
+        f.write("    for _, tag in ipairs(data.tags) do\n")
+        f.write("        if not ToysByFunctionDB._byTag[tag] then\n")
+        f.write("            ToysByFunctionDB._byTag[tag] = {}\n")
+        f.write("        end\n")
+        f.write("        table.insert(ToysByFunctionDB._byTag[tag], toyId)\n")
+        f.write("    end\n")
+        f.write("end\n\n")
+
+        f.write("-- Lookup functions\n")
+        f.write("--- Returns the toy data table for the given toy ID, or nil.\n")
+        f.write("function ToysByFunctionDB:GetByToyId(toyId)\n")
+        f.write("    return self.toys[toyId]\n")
+        f.write("end\n\n")
+        f.write("--- Returns the toy data table for the given item ID, or nil.\n")
+        f.write("function ToysByFunctionDB:GetByItemId(itemId)\n")
+        f.write("    local toyId = self._byItemId[itemId]\n")
+        f.write("    return toyId and self.toys[toyId] or nil\n")
+        f.write("end\n\n")
+        f.write("--- Returns a table of { [toyId] = data } for all toys with the given tag.\n")
+        f.write("function ToysByFunctionDB:GetByTag(tag)\n")
+        f.write("    local result = {}\n")
+        f.write("    for _, toyId in ipairs(self._byTag[tag] or {}) do\n")
+        f.write("        result[toyId] = self.toys[toyId]\n")
+        f.write("    end\n")
+        f.write("    return result\n")
+        f.write("end\n")
+
+    print(f"[Step 7] Done. Written to {lua_path}")
+else:
+    print("[Step 7] Skipping. Pass --rebuild-lua to export ToyDB.lua.")
 
 db.close()
