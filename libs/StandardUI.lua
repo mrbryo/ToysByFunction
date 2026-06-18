@@ -1,0 +1,210 @@
+--[[---------------------------------------------------------------------------
+    Function:   CreateStandardButton
+    Purpose:    Standardize button creation.
+    Arguments:  parent   - The parent frame to attach this frame to
+                text     - The button text
+                width    - The width of the button
+                onClick  - Callback function when the button is clicked
+    Returns:    The created Button frame.
+-----------------------------------------------------------------------------]]
+function ToysByFunction:CreateStandardButton(parent, buttonName, text, width, onClick)
+    local button = CreateFrame("Button", buttonName, parent, "GameMenuButtonTemplate")
+    button:SetSize(width or 120, 22)
+    button:SetText(text)
+    button:SetScript("OnClick", onClick)
+    return button
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   CreateEditBox
+    Purpose:    Standardize edit box creation.
+    Arguments:  parent   - The parent frame to attach this frame to
+                width    - The width of the edit box
+                height   - The height of the edit box
+                readOnly - Boolean to set if the edit box is read-only
+    Returns:    The created EditBox frame.
+-----------------------------------------------------------------------------]]
+function ToysByFunction:CreateEditBox(parent, width, height, readOnly, onEnter)
+    local editBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    editBox:SetSize(width or 200, height or 20)
+    editBox:SetAutoFocus(false)
+    
+    if readOnly then
+        editBox:SetEnabled(false)
+        editBox:SetTextColor(GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
+    end
+
+    if onEnter then
+        editBox:SetScript("OnEnterPressed", function(self)
+            onEnter(self) 
+        end)
+    end
+    
+    return editBox
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   SetLabelWithTimer
+    Purpose:    Set a label's text and clear it after a specified duration.
+    Arguments:  label     - The font string label to update
+                text      - The text to display
+                duration  - How long to show the text before clearing (optional, default 3 seconds)
+                color     - Color table {r, g, b} for the text (optional)
+    Returns:    None
+-----------------------------------------------------------------------------]]
+function ToysByFunction:SetLabelWithTimer(label, text, duration, color)
+    if not label then return end
+    
+    duration = duration or 3.0  -- Default 3 seconds
+    
+    -- Cancel any existing timer
+    if label.clearTimer then
+        label.clearTimer:Cancel()
+        label.clearTimer = nil
+    end
+    
+    -- Set the text immediately
+    label:SetText(text)
+    
+    -- Set color if provided
+    if color then
+        label:SetTextColor(color.r or 1, color.g or 1, color.b or 1)
+    end
+    
+    -- Create timer to clear the text
+    label.clearTimer = C_Timer.NewTimer(duration, function()
+        label:SetText("")
+        label.clearTimer = nil
+    end)
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   CreateCheckbox
+    Purpose:    Standardize checkbox creation.
+    Arguments:  parent       - The parent frame to attach this frame to
+                text         - The label text for the checkbox
+                initialValue - The initial checked state (true/false)
+                onChanged    - Callback function when the checkbox state changes
+    Returns:    The created CheckButton frame.
+----------------------------------------------------------------------------]]
+function ToysByFunction:CreateCheckbox(parent, text, initialValue, frameName, OnClick)
+    -- create checkbox
+    local checkbox = CreateFrame("CheckButton", frameName, parent, "ChatConfigCheckButtonTemplate")
+
+    -- set its label
+    checkbox.Text:SetText(text)
+
+    -- set if its checked or not
+    checkbox:SetChecked(initialValue)
+
+    -- set the OnClick event function to the onChanged parameter function
+    checkbox:SetScript("OnClick", function(self, button, down)
+        local checked = self:GetChecked()
+        if OnClick then
+            OnClick(self, button, checked)
+        end
+    end)
+    
+    -- finally return the checkbox object
+    return checkbox
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   CreateDropdown
+    Purpose:    Standardize dropdown creation.
+    Arguments:  parent          - The parent frame to attach this frame to
+                items           - A table of items for the dropdown (key-value pairs)
+                initialValue    - The initial selected value
+                onSelectionChanged - Callback function when the selection changes
+    Returns:    The created Dropdown frame.
+-----------------------------------------------------------------------------]]
+function ToysByFunction:CreateDropdown(parent, itemOrder, items, initialValue, frameName, onChange)
+    -- create dropdown and set it up
+    local dropdown = CreateFrame("DropdownButton", frameName, parent, "WowStyle1DropdownTemplate")
+    
+    -- store dropdown state
+    dropdown.selectedValue = initialValue or ""
+    if items == nil then
+        dropdown.selectedText = itemOrder[initialValue] or ""
+        dropdown.items = itemOrder
+    else
+        dropdown.selectedText = items[initialValue] or ""
+        dropdown.items = items
+    end
+    dropdown.itemOrder = itemOrder
+    
+    -- external function; change selected value
+    local function SetSelectedValue(key)
+        --@debug@
+        -- print("(CreateDropdown) SetSelectedValue called with key:", key)
+        --@end-debug@
+        if dropdown.items[key] then
+            dropdown.selectedValue = key
+            dropdown.selectedText = dropdown.items[key] or ""
+        elseif dropdown.items[key] == nil then
+            dropdown.selectedValue = key
+            dropdown.selectedText = key
+        else
+            dropdown.selectedValue = ""
+            dropdown.selectedText = ""
+        end
+        if onChange then
+            onChange(key)
+        end
+    end
+
+    -- function to check if a value is selected
+    local function IsSelectedValue(key)
+        return dropdown.selectedValue == key
+    end
+
+    -- function to build the dropdown menu from the items parameter
+    local function GeneratorFunction(dropdown, rootDescription)
+        -- add buttons for each item
+        -- for key, value in pairs(dropdown.items) do
+        for key, value in pairs(dropdown.itemOrder) do
+            local radioValue = dropdown.items[value]
+            local radioKey = value
+            if items == nil then
+                radioValue = value
+                radioKey = key
+            end
+            rootDescription:CreateRadio(radioValue, IsSelectedValue, SetSelectedValue, radioKey)
+        end
+    end
+
+    -- setup the menu
+    dropdown:SetupMenu(GeneratorFunction)
+
+    -- external function; update function
+    function dropdown:UpdateItems(newItemOrder, newItems, newValue)
+        --@debug@
+        -- print("(CreateDropdown) New Value:", newValue)
+        --@end-debug@
+        if newItems == nil then
+            self.selectedText = newItemOrder[newValue] or ""
+            self.items = newItemOrder
+        else
+            self.selectedText = newItems[newValue] or ""
+            self.items = newItems
+        end
+        self.itemOrder = newItemOrder
+        SetSelectedValue(newValue)
+        dropdown:GenerateMenu()
+    end
+
+    -- external function; get selected value
+    function dropdown:GetSelectedValue()
+        return self.selectedValue
+    end
+
+    -- set initial value if provided
+    if initialValue and dropdown.items[initialValue] then
+        SetSelectedValue(initialValue)
+    end
+    
+    -- return the created dropdown
+    return dropdown
+end
+
+-- EOF
