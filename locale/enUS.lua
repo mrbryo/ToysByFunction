@@ -30,7 +30,8 @@ L["Yes"] = "Yes"
 -- Events
 L["Player Logging Out..."] = "Player Logging Out..."
 
--- Filter Bar
+-- Main Frame
+L["Filtered List of Toys by Tag:"] = "Filtered List of Toys by Tag:"
 L["Tag:"] = "Tag:"
 L["No Tag Selected"] = "No Tag Selected"
 

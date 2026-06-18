@@ -566,11 +566,14 @@ function ToysByFunction:ShowUI(openDelaySeconds)
         -- create main frame
         self:CreateMainFrame()
 
+        -- load left side
+        self:CreateLeftToyFrame()
+
         -- load filter bar
-        self:CreateMainFrameFilterBar()
+        -- self:CreateMainFrameFilterBar()
 
         -- load content
-        self:CreateMainFrameContent()
+        -- self:CreateMainFrameContent()
 
         -- show initial tab
         -- local tabKey = self:GetTab()
@@ -667,22 +670,28 @@ function ToysByFunction:CreateMainFrame()
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   CreateMainFrameFilterBar
-    Purpose:    Create the filter bar for the main frame.
+    Function:   CreateLeftToyFrame
+    Purpose:    Create the left frame for displaying the list of toys based on the selected tag.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:CreateMainFrameFilterBar()
+function ToysByFunction:CreateLeftToyFrame()
     -- standard variables
     local padding = self.constants.ui.generic.padding
-    local frameHeight = 50
 
-    -- create top frame to hold filter controls
-    local filterBar = CreateFrame("Frame", "ToysByFunctionMainFrameFilterBar", ToysByFunctionMainFrame) --, "InsetFrameTemplate")
-    filterBar:SetPoint("TOPLEFT", ToysByFunctionMainFrame, "TOPLEFT", 65, -25)
-    filterBar:SetPoint("TOPRIGHT", ToysByFunctionMainFrame, "TOPRIGHT", -15, -25)
-    filterBar:SetHeight(frameHeight)
+    -- add label to left frame
+    local leftFrameLabel = ToysByFunctionMainFrame:CreateFontString("ToysByFunctionLeftFrameLabel", "ARTWORK", "GameFontNormal")
+    leftFrameLabel:SetJustifyH("LEFT")
+    leftFrameLabel:SetPoint("LEFT", ToysByFunctionMainFrame, "LEFT", padding, 0)
+    leftFrameLabel:SetPoint("TOP", ToysByFunctionMainFramePortrait, "BOTTOM", 0, -padding)
+    leftFrameLabel:SetText(self.L["Filtered List of Toys by Tag:"])
+    
+    -- create inset frame
+    local leftFrame = CreateFrame("Frame", "ToysByFunctionLeftToyFrame", ToysByFunctionMainFrame, "InsetFrameTemplate")
+    leftFrame:SetPoint("TOPLEFT", leftFrameLabel, "BOTTOMLEFT", 0, 0)
+    leftFrame:SetPoint("BOTTOMLEFT", ToysByFunctionMainFrame, "BOTTOMLEFT", padding, padding)
+    leftFrame:SetWidth(400)
 
     -- label for dropdown
-    local dropdownLabel = filterBar:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local dropdownLabel = leftFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     dropdownLabel:SetJustifyH("LEFT")
     dropdownLabel:SetText(self.L["Tag:"])
 
@@ -694,8 +703,11 @@ function ToysByFunction:CreateMainFrameFilterBar()
     --     items[tagKey] = self.L[tagData.name] or tagData.name
     -- end
 
+    -- set initial tag order
     local itemOrder = {"none"}
-    self.ui.dropdown.filterTag = self:CreateDropdown(filterBar, itemOrder, items, "none", self:GetObjectName("DropdownFilterTag"), function(key)
+
+    -- create dropdown
+    self.ui.dropdown.filterToysByTag = self:CreateDropdown(leftFrame, itemOrder, items, "none", self:GetObjectName("DropdownFilterTag"), function(key)
         -- track choice by character
         if key ~= "none" and key ~= nil then
             -- need to add code to reload view of toys based on the selected tag
@@ -706,20 +718,58 @@ function ToysByFunction:CreateMainFrameFilterBar()
             --@end-debug@
         end
     end)
-    self.ui.dropdown.filterTag:SetWidth(200)
+    self.ui.dropdown.filterToysByTag:SetWidth(200)
 
     -- update the dropdown with the current tags
     self:UpdateFilterBarTags()
 
-    -- position the label and then dropdown
-    local dropdownOffset = (self.ui.dropdown.filterTag:GetHeight() - dropdownLabel:GetStringHeight()) / 2
-    dropdownLabel:SetPoint("TOPLEFT", filterBar, "TOPLEFT", 0, -(padding + dropdownOffset))
-    self.ui.dropdown.filterTag:SetPoint("LEFT", dropdownLabel, "RIGHT", padding, 0)
+    -- position the label and the dropdown
+    local dropdownOffset = (self.ui.dropdown.filterToysByTag:GetHeight() - dropdownLabel:GetStringHeight()) / 2
+    dropdownLabel:SetPoint("TOPLEFT", leftFrame, "TOPLEFT", padding, -(padding + dropdownOffset))
+    self.ui.dropdown.filterToysByTag:SetPoint("LEFT", dropdownLabel, "RIGHT", padding, 0)
 
-    -- readjust the filter bar height
-    frameHeight = self.ui.dropdown.filterTag:GetHeight() + (padding * 2)
-    filterBar:SetHeight(frameHeight)
+    -- add scroll frame
+    local scrollContainer = CreateFrame("ScrollFrame", nil, leftFrame, "UIPanelScrollFrameTemplate")
+    scrollContainer:SetPoint("TOP", self.ui.dropdown.filterToysByTag, "BOTTOM", 0, -padding)
+    scrollContainer:SetPoint("LEFT", leftFrame, "LEFT", 5, 0)
+    scrollContainer:SetPoint("BOTTOMRIGHT", leftFrame, "BOTTOMRIGHT", -27, 5)
+
+    -- add scroll content frame
+    local leftContent = CreateFrame("Frame", nil, scrollContainer)
+    leftContent:SetWidth(scrollContainer:GetWidth() - 20)
+    leftContent:SetHeight(leftFrame:GetHeight() - 10)
+    scrollContainer:SetScrollChild(leftContent)
 end
+
+--[[---------------------------------------------------------------------------
+    Function:   LoadToyList
+    Purpose:    Load the list of toys based on the selected tag and display them in the left frame.
+-----------------------------------------------------------------------------]]
+function ToysByFunction:LoadToyList()
+
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   CreateMainFrameFilterBar
+    Purpose:    Create the filter bar for the main frame.
+-----------------------------------------------------------------------------]]
+-- function ToysByFunction:CreateMainFrameFilterBar()
+--     -- standard variables
+--     local padding = self.constants.ui.generic.padding
+--     local frameHeight = 50
+
+--     -- create top frame to hold filter controls
+--     local filterBar = CreateFrame("Frame", "ToysByFunctionMainFrameFilterBar", ToysByFunctionMainFrame) --, "InsetFrameTemplate")
+--     filterBar:SetPoint("TOPLEFT", ToysByFunctionMainFrame, "TOPLEFT", 65, -25)
+--     filterBar:SetPoint("TOPRIGHT", ToysByFunctionMainFrame, "TOPRIGHT", -15, -25)
+--     filterBar:SetHeight(frameHeight)
+
+    
+
+--     -- readjust the filter bar height
+--     frameHeight = self.ui.dropdown.filterTag:GetHeight() + (padding * 2)
+--     filterBar:SetHeight(frameHeight)
+-- end
 
 --[[---------------------------------------------------------------------------
     Function:   UpdateFilterBarTags
@@ -749,7 +799,7 @@ function ToysByFunction:UpdateFilterBarTags()
     local selectedItem = self:GetSelectedTag() or "none"
 
     -- trigger update
-    self.ui.dropdown.filterTag:UpdateItems(itemOrder, items, selectedItem)
+    self.ui.dropdown.filterToysByTag:UpdateItems(itemOrder, items, selectedItem)
 end
 
 --[[---------------------------------------------------------------------------
