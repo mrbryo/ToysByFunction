@@ -3,14 +3,10 @@
     Language: Russian (ruRU)
 -----------------------------------------------------------------------------]]
 
--- make sure locales variable exists
-if not ToysByFunction.locales then
-    ToysByFunction.locales = {}
-end
+local addonName, ns = ...
+if GetLocale() ~= "ruRU" then return end
 
--- add the locale
-ToysByFunction.locales["ruRU"] = {}
-local L = ToysByFunction.locales["ruRU"]
+local L = ns.L
 
 -- following line is replaced when packaged through curseforge using their localization tool
 --@localization(locale="ruRU", format="lua_additive_table", handle-subnamespaces="concat", handle-unlocalized="english")@

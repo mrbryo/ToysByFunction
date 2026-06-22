@@ -3,14 +3,10 @@
     Language: Spanish (esES)
 -----------------------------------------------------------------------------]]
 
--- make sure locales variable exists
-if not ToysByFunction.locales then
-    ToysByFunction.locales = {}
-end
+local addonName, ns = ...
+if GetLocale() ~= "esES" then return end
 
--- add the locale
-ToysByFunction.locales["esES"] = {}
-local L = ToysByFunction.locales["esES"]
+local L = ns.L
 
 -- following line is replaced when packaged through curseforge using their localization tool
 --@localization(locale="esES", format="lua_additive_table", handle-subnamespaces="concat", handle-unlocalized="english")@

@@ -3,14 +3,14 @@
     Language: English (US)
 -----------------------------------------------------------------------------]]
 
--- make sure locales variable exists
-if not ToysByFunction.locales then
-    ToysByFunction.locales = {}
-end
+local addonName, ns = ...
 
--- add the locale
-ToysByFunction.locales["enUS"] = {}
-local L = ToysByFunction.locales["enUS"]
+local L = setmetatable({}, {
+    __index = function(self, key)
+        return key  -- fallback: return the key itself
+    end,
+})
+ns.L = L
 
 -- following line is replaced when packaged through curseforge using their localization tool
 --@localization(locale="enUS", format="lua_additive_table", handle-subnamespaces="concat", handle-unlocalized="english")@
@@ -36,13 +36,9 @@ L["Tag:"] = "Tag:"
 L["No Tag Selected"] = "No Tag Selected"
 
 -- Mini Map Button
-L["Click to open Toys by Function"] = "Click to open Toys by Function"
-L["Right-click for Options"] = "Right-click for Options"
-L["Toys by Function allows you to manage your toys by what action they perform."] = "Toys by Function allows you to manage your toys by what action they perform."
-L["You can open the Toys by Function interface using the following slash commands or, if visible, left clicking the mini-map button:"] = "You can open the Toys by Function interface using the following slash commands or, if visible, left clicking the mini-map button:"
-L["Open Toys by Function"] = "Open Toys by Function"
-L["Show Mini-map Button"] = "Show Mini-map Button"
-L["Note: LibDBIcon-1.0 is missing or one of its dependencies (LibStub and LibDataBroker), therefore, mini-map button cannot be created. Also, not sure why, but LibDBIcon-1.0 may not show up in the addon list even if it is installed."] = "Note: LibDBIcon-1.0 is missing or one of its dependencies (LibStub and LibDataBroker), therefore, mini-map button cannot be created. Also, not sure why, but LibDBIcon-1.0 may not show up in the addon list even if it is installed."
+L["Left-click open main config window."] = "Left-click open main config window."
+L["Right-click for function window."] = "Right-click for function window."
+L["Issue with addon options panel, cannot open settings. If persists please open a ticket."] = "Issue with addon options panel, cannot open settings. If persists please open a ticket."
 
 -- Tags
 L["buff"] = "Buff"

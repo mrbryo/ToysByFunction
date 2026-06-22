@@ -3,14 +3,10 @@
     Language: German (deDE)
 -----------------------------------------------------------------------------]]
 
--- make sure locales variable exists
-if not ToysByFunction.locales then
-    ToysByFunction.locales = {}
-end
+local addonName, ns = ...
+if GetLocale() ~= "deDE" then return end
 
--- add the locale
-ToysByFunction.locales["deDE"] = {}
-local L = ToysByFunction.locales["deDE"]
+local L = ns.L
 
 -- following line is replaced when packaged through curseforge using their localization tool
 --@localization(locale="deDE", format="lua_additive_table", handle-subnamespaces="concat", handle-unlocalized="english")@

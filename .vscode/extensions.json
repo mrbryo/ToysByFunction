@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "sumneko.lua",
+        "ketho.wow-api",
+        "stanzilla.vscode-wow-toc",
+        "johnnymorganz.stylua"
+    ]
+}

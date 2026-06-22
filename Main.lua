@@ -5,177 +5,60 @@
 	Description: 	Main program for Toys by Function addon.
 -----------------------------------------------------------------------------]]
 
+local addonName, ns = ...
+
 --[[---------------------------------------------------------------------------
-    Function:   InitializeLocalization
-    Purpose:    Load the localization table for the current locale.
+    Function:   AfterCombat
+    Purpose:    Safely execute a WoW API call after combat ends.
+    Arguments:  func - Function to call
 -----------------------------------------------------------------------------]]
-function ToysByFunction:InitializeLocalization()
-    -- get current local
-    local locale = GetLocale() or "enUS"
-
-    -- get language data
-    self.L = self.locales[locale]
-
-    -- clear locales to free memory
-    self.locales = nil
+ns.combatQueue = {}
+function ns.AfterCombat(fn)
+    if InCombatLockdown() then
+        ns.combatQueue[#ns.combatQueue + 1] = fn
+    else
+        fn()
+    end
 end
 
 --[[---------------------------------------------------------------------------
-	Register the addon loaded event to begin further initialization.
+    Event:      PLAYER_REGEN_ENABLED
+    Purpose:    Trigger queued functions after combat ends.
+    Arguments:  func - Function to call
 -----------------------------------------------------------------------------]]
-ToysByFunction:RegisterEvent("ADDON_LOADED", function(self, event, addonName, ...)
-	if addonName ~= "ToysByFunction" then
-		return
-	end
-
-	--@debug@
-	-- ToysByFunction:Print(("%s loaded for Addon: %s"):format(event, addonName))
-	--@end-debug@
-
-    -- initialize language
-    ToysByFunction:InitializeLocalization()
-
-    -- Check the DB
-    if not ToysByFunctionDB then
-        ToysByFunction:Print(ToysByFunction.L["Database Not Found? Strange...please reload the UI. If error returns, restart the game."])
-    end
-
-    -- Register Events using native system
-    ToysByFunction:RegisterAddonEvents()
-    
-    -- Create minimap button using LibDBIcon
-    ToysByFunction:CreateMinimapButton()
-
-    -- Create and register the options panel
-    ToysByFunction:CreateOptionsPanel()
-
-	-- unregister event
-	ToysByFunction:UnregisterEvent("ADDON_LOADED")
+ns.RegisterEvent("PLAYER_REGEN_ENABLED", function()
+    for _, fn in ipairs(ns.combatQueue) do fn() end
+    wipe(ns.combatQueue)
 end)
 
---[[---------------------------------------------------------------------------
-    Function:   InstantiateDBChar
-    Purpose:    Ensure the character specific DB structure exists and has all necessary values.
------------------------------------------------------------------------------]]
-function ToysByFunction:InstantiateDBChar(barID)
-    -- create the character structure
-    if not self.char then
-        self.char = {}
-    end
-
-    -- currentBarData holds the last scan of data fetched from the action bars for the current character; hence stored in char
-    if not self.char[self.currentPlayerServerSpec] then
-        self.char[self.currentPlayerServerSpec] = {}
-    end
-
-    -- copy the tags as tabs
-    if not self.char[self.currentPlayerServerSpec].tabs then
-        -- loop over the tags and copy them to create tab id's and the initial order of the tabs
-        for index, tag in ipairs(self.tags) do
-            -- if tabs is empty, create it
-            if not self.char[self.currentPlayerServerSpec].tabs then
-                self.char[self.currentPlayerServerSpec].tabs = {}
-            end
-
-            -- add the tag
-            table.insert(self.char[self.currentPlayerServerSpec].tabs, {
-                id = tag,
-                order = index
-            })
-        end
-    end
+-- Build frames, register gameplay events, start timers.
+function ns:Enable()
+    
+    -- Create minimap button using LibDBIcon
+    ns:CreateMinimapButton()
 end
 
---[[---------------------------------------------------------------------------
-    Function:   InstantiateDBGlobal
-    Purpose:    Ensure the global DB structure exists and has all necessary values.
------------------------------------------------------------------------------]]
-function ToysByFunction:InstantiateDBGlobal(barID)
-    -- create the global structure
-    self:SetupGlobalDB()
-end
-
---[[---------------------------------------------------------------------------
-    Function:   InstantiateDBProfile
-    Purpose:    Ensure the profile DB structure exists and has all necessary values.
------------------------------------------------------------------------------]]
-function ToysByFunction:InstantiateDBProfile()
-    -- create/fix/update the profile structure
-    self:SetupProfileDB()
-
-    -- create initial value for storing custom tag settings
-    if not ToysByFunctionDB.profile[self.currentPlayerServer].tags then
-        ToysByFunctionDB.profile[self.currentPlayerServer].tags = {}
+-- Tear down / hide what Enable created.
+function ns:Disable()
+    -- Unregister events by removing the event frame
+    if self.eventFrame then
+        self.eventFrame:UnregisterAllEvents()
+        self.eventFrame:SetScript("OnEvent", nil)
     end
 
-    -- create inital value for storing custom tags
-    if not ToysByFunctionDB.profile[self.currentPlayerServer].tags.custom then
-        ToysByFunctionDB.profile[self.currentPlayerServer].tags.custom = {}
+    if self.gets:GetDevMode() == true then
+        self:Print(self.L["Disabled"])
     end
 
-    -- create initial value for storing custom tags and/or order
-    if not ToysByFunctionDB.profile[self.currentPlayerServer].tags.order then
-        ToysByFunctionDB.profile[self.currentPlayerServer].tags.order = {}
-    end
-end
-
---[[---------------------------------------------------------------------------
-    Function:   InstantiateTags
-    Purpose:    Copy the tags into the DB from the ToyDB.lua file as this is the source of record as the ToyDB.lua is maintained by the python script.
------------------------------------------------------------------------------]]
-function ToysByFunction:InstantiateTags()
-    -- make sure tags exists from the ToyDB.lua file
-    if self.tags then
-        -- loop over those tags
-        for idx, id in pairs(self.tags) do
-            -- check if the tag exists, if not add it
-            if not ToysByFunctionDB.profile[self.currentPlayerServer].tags.order[id] then
-                -- if not, copy it in from the source of record; order is determined by the index of the tag; always add as enabled by default
-                ToysByFunctionDB.profile[self.currentPlayerServer].tags.order[id] = {
-                    order = idx,
-                    enabled = true,
-                }
-            end
-        end
-
-        --@debug@
-        -- for tagID, tagdata in pairs(ToysByFunctionDB.profile[self.currentPlayerServer].tags.order) do
-        --     ToysByFunction:Print(("Tag in DB: %s with order %d and enabled state %s"):format(tagID, tostring(tagdata.order), tostring(tagdata.enabled)))
-        -- end
-        --@end-debug@
-    else
-        self:Print(self.L["Tags Missing from Toy DB; unable to process default tags. Please open a ticket."])
-    end
-end
-
---[[---------------------------------------------------------------------------
-    Function:   InstantiateDB
-    Purpose:    Ensure the DB has all the necessary values. Can run anytime to check and fix all data with default values.
------------------------------------------------------------------------------]]
-function ToysByFunction:InstantiateDB()
-    --@debug@
-    if self:GetDevMode() == true then
-        self:Print(ToysByFunction.L["DB Initialization"])
-    end
-    --@end-debug@
-    -- make sure player key is set
-    self:SetKeyPlayerServerSpec()
-    self:SetKeyPlayerServer()
-
-    -- instantiate db
-    self:InstantiateDBProfile()
-    self:InstantiateDBGlobal()
-    self:InstantiateDBChar()
-
-    -- instantiate tags; must be called after InstantiateDBProfile
-    self:InstantiateTags()
+    -- same clean up should occur when disabled
+    self:EventPlayerLogout()
 end
 
 --[[---------------------------------------------------------------------------
     Function:   FormatDateString
     Purpose:    Convert a date string from YYYYMMDDHHMISS or YYYY-MM-DD HH:MI:SS format to YYYY, Mon DD HH:MI:SS format.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:FormatDateString(dateString)    
+function ns:FormatDateString(dateString)    
     -- validate input
     if dateString == self.L["Never"] then
         return self.L["Never"]
@@ -228,7 +111,7 @@ end
     Function:   RemoveFrameChildren
     Purpose:    Remove all children from a frame.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:RemoveFrameChildren(parent)
+function ns:RemoveFrameChildren(parent)
     -- if no scroll region, nothing to do
     if not parent then return end
 
@@ -254,7 +137,7 @@ end
                 ... - Arguments to pass to the function
     Returns:    Table with success status, result, and error message
 -----------------------------------------------------------------------------]]
-function ToysByFunction:SafeWoWAPICall(func, ...)
+function ns:SafeWoWAPICall(func, ...)
     -- set language variable
     local L = self.L
     
@@ -268,7 +151,7 @@ function ToysByFunction:SafeWoWAPICall(func, ...)
         }
     else
         --@debug@
-        if self:GetDevMode() == true then
+        if self.gets:GetDevMode() == true then
             self:Print((self.L["API Error: %s"]):format(tostring(result)))
         end
         --@end-debug@
@@ -285,7 +168,7 @@ end
     Function:   EnableDevelopment
     Purpose:    Enable development mode for testing and debugging.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:EnableDevelopment()
+function ns:EnableDevelopment()
     -- enable development mode
     self:SetDevMode(true)
 
@@ -300,8 +183,8 @@ end
     Function:   DisableDevelopment
     Purpose:    Disable development mode for testing and debugging.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:DisableDevelopment()
-    if self:GetTab() == "developer" then
+function ns:DisableDevelopment()
+    if self.gets:GetTab() == "developer" then
         -- switch to default tab if the user is on the developer tab
         self:SetTab("introduction")
     end
@@ -317,121 +200,18 @@ function ToysByFunction:DisableDevelopment()
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   SlashCommand
-    Purpose:    Respond to all slash commands.
------------------------------------------------------------------------------]]
-function ToysByFunction:SlashCommand(text)
-    -- if no text is provided, show the options dialog
-    if text == nil or text == "" then
-        self:ShowUI()
-        return
-    end
-
-    -- get args
-    for _, arg in ipairs(self:GetArgs(text)) do
-        if arg:lower() == "enablemodedeveloper" then
-            if not self:GetDevMode() or self:GetDevMode() == false then
-                self:EnableDevelopment()
-            else
-                self:DisableDevelopment()
-            end
-        else
-            self:Print((self.L["Unknown Command: %s"]):format(arg))
-        end
-    end
-end
-
---[[---------------------------------------------------------------------------
-    Function:   EventPlayerLogout
-    Purpose:    Handle functionality which is best or must wait for the PLAYER_LOGOUT event.
------------------------------------------------------------------------------]]
-function ToysByFunction:EventPlayerLogout()
-    --@debug@
-    if self:GetDevMode() == true then self:Print(self.L["Player Logging Out..."]) end
-    --@end-debug@
-end
-
---[[---------------------------------------------------------------------------
-    Function:   OnDisable
-    Purpose:    Trigger code when addon is disabled.
------------------------------------------------------------------------------]]
-function ToysByFunction:OnDisable()
-    -- set language variable
-    local L = self.L
-    
-    -- Unregister events by removing the event frame
-    if self.eventFrame then
-        self.eventFrame:UnregisterAllEvents()
-        self.eventFrame:SetScript("OnEvent", nil)
-    end
-
-    if self:GetDevMode() == true then
-        self:Print(self.L["Disabled"])
-    end
-
-    -- same clean up should occur when disabled
-    self:EventPlayerLogout()
-end
-
---[[---------------------------------------------------------------------------
-    Function:   RegisterAddonEvents
-    Purpose:    Register all events for the addon using native WoW event system.
------------------------------------------------------------------------------]]
-function ToysByFunction:RegisterAddonEvents()
-    --@debug@
-    -- if self:GetDevMode() == true then
-    --     self:Print(ToysByFunction.L["Registering Events..."]) 
-    -- end
-    --@end-debug@
-
-    -- PLAYER_ENTERING_WORLD
-    self:RegisterEvent("PLAYER_ENTERING_WORLD", function(self, event, ...)
-        -- get event parameters
-        local isInitialLogin, isReload = ...
-        --@debug@
-        ToysByFunction:Print(("Event Triggered - %s, isInitialLogin: %s, isReload: %s"):format(event, tostring(isInitialLogin) and ToysByFunction.L["Yes"] or ToysByFunction.L["No"], tostring(isReload) and ToysByFunction.L["Yes"] or ToysByFunction.L["No"]))
-        --@end-debug@
-
-        -- instantiate player keys
-        ToysByFunction:SetKeyPlayerServerSpec()
-        ToysByFunction:SetKeyPlayerServer()
-
-        -- run db initialize again but pass in barName to make sure all keys are setup for this barName
-        ToysByFunction:InstantiateDB()
-        
-        -- update global variable for tracking if event has triggered
-        ToysByFunction.hasPlayerEnteredWorld = true
-    end)
-
-    -- PLAYER_LOGOUT
-    self:RegisterEvent("PLAYER_LOGOUT", function(self, event, ...)
-        --@debug@
-        ToysByFunction:Print(("Event Triggered - %s"):format(event))
-        --@end-debug@
-        ToysByFunction:EventPlayerLogout()
-    end)
-
-    -- VARIABLES_LOADED
-    self:RegisterEvent("VARIABLES_LOADED", function(self, event, ...)
-        --@debug@
-        ToysByFunction:Print(("Event Triggered - %s"):format(event))
-        --@end-debug@
-    end)
-end
-
---[[---------------------------------------------------------------------------
     Function:   StoreFramePosition
     Purpose:    Store the current frame position in the character database.
     Arguments:  frame - the frame whose position to store
 -----------------------------------------------------------------------------]]
-function ToysByFunction:StoreFramePosition(frame)
+function ns:StoreFramePosition(frame)
     -- Get current position
     local point, relativeTo, relativePoint, xOfs, yOfs = frame:GetPoint()
 
     -- get frame name
     local frameName = frame:GetName()
     if not frameName then
-        if self:GetDevMode() == true then
+        if self.gets:GetDevMode() == true then
             self:Print(self.L["Error: Frame has no name, cannot store position."])
         end
         return
@@ -441,7 +221,7 @@ function ToysByFunction:StoreFramePosition(frame)
     local isSuccess = self:SetFramePosition(frameName, point, relativePoint, xOfs, yOfs)
 
     --@debug@
-    -- if self:GetDevMode() == true then
+    -- if self.gets:GetDevMode() == true then
     --     self:Print(("Frame position stored: %s %s %.1f %.1f"):format(point, relativePoint, xOfs, yOfs))
     -- end
     --@end-debug@
@@ -456,19 +236,16 @@ end
                 frameWidth - width of the frame
                 frameHeight - height of the frame
 -----------------------------------------------------------------------------]]
-function ToysByFunction:RestoreFramePosition(frame, frameWidth, frameHeight)
-    -- set language variable
-    local L = self.L
-
+function ns:RestoreFramePosition(frame, frameWidth, frameHeight)
     -- get frame name
     local frameName = frame:GetName()
     
     -- get stored position data
-    local storedPosition = self:GetFramePosition(frameName)
+    local storedPosition = ns.gets:GetFramePosition(frameName)
     if not storedPosition then
         --@debug@
-        if self:GetDevMode() == true then
-            self:Print((self.L["No stored position data found for frame: %s"]):format(frameName))
+        if ns.gets:GetDevMode() == true then
+            ns:Print((ns.L["No stored position data found for frame: %s"]):format(frameName))
         end
         --@end-debug@
         return false
@@ -524,21 +301,21 @@ function ToysByFunction:RestoreFramePosition(frame, frameWidth, frameHeight)
             yOffset = testY
             
             --@debug@
-            -- if self:GetDevMode() == true then
-            --     self:Print(("Frame positioned from stored data: %s %.1f %.1f."):format(point, xOffset, yOffset))
+            -- if ns.gets:GetDevMode() == true then
+            --     ns:Print(("Frame positioned from stored data: %s %.1f %.1f."):format(point, xOffset, yOffset))
             -- end
             --@end-debug@
         else
             --@debug@
-            -- if self:GetDevMode() == true then
-            --     self:Print("Stored frame position is outside bounds, centering frame.")
+            -- if ns.gets:GetDevMode() == true then
+            --     ns:Print("Stored frame position is outside bounds, centering frame.")
             -- end
             --@end-debug@
         end
     else
         --@debug@
-        -- if self:GetDevMode() == true then
-        --     self:Print("No stored frame position found, centering frame.")
+        -- if ns.gets:GetDevMode() == true then
+        --     ns:Print("No stored frame position found, centering frame.")
         -- end
         --@end-debug@
     end
@@ -552,9 +329,9 @@ end
     Function:   ShowUI
     Purpose:    Open custom UI to show last sync errors to user.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:ShowUI(openDelaySeconds)
+function ns:ShowUI(openDelaySeconds)
     -- make sure key name, server and spec are set
-    self:SetKeyPlayerServerSpec()
+    ns.sets:SetKeyPlayerServerSpec()
 
     -- make sure openDelaySeconds is not nil
     if not openDelaySeconds then
@@ -562,53 +339,23 @@ function ToysByFunction:ShowUI(openDelaySeconds)
     end
 
     -- be sure frame doesn't exist
-    if not ToysByFunctionMainFrame then
+    if not ns.data.ui.frame.main then
         -- create main frame
-        self:CreateMainFrame()
+        ns:CreateMainFrame()
 
         -- load left side
-        self:CreateLeftToyFrame()
-
-        -- load filter bar
-        -- self:CreateMainFrameFilterBar()
-
-        -- load content
-        -- self:CreateMainFrameContent()
-
-        -- show initial tab
-        -- local tabKey = self:GetTab()
-
-        -- check on developer mode
-        -- if self:GetDevMode() == false then
-        --     -- hide developer tab button
-        --     --self:SetDeveloperTabVisibleState(false)
-
-        --     -- if the current tab is developer then switch to introduction
-        --     if tabKey == "developer" then
-        --         tabKey = "introduction"
-        --         self:SetTab(tabKey)
-        --     end
-        -- else
-        --     -- show developer tab button
-        --     self:SetDeveloperTabVisibleState(true)
-        -- end
-        --@debug@
-        -- self:Print(("(ShowUI) Showing Initial Tab after creating UI: %s"):format(tabKey))
-        --@end-debug@
-        -- self:ShowTabContent(tabKey)
-        -- local buttonID = ToysByFunction.uitabs["buttonref"][tabKey]
-        -- PanelTemplates_SetTab(ToysByFunctionMainFrameTabs, buttonID)
+        ns:CreateLeftToyFrame()
     end
 
     -- display the frame
-    ToysByFunctionMainFrame:Show()
+    ns.data.ui.frame.main:Show()
 end
 
 --[[---------------------------------------------------------------------------
     Function:   CreateMainFrame
     Purpose:    Create the main frame for the addon UI.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:CreateMainFrame()   
+function ns:CreateMainFrame()   
     -- get screen size
     local screenWidth = UIParent:GetWidth()
     local screenHeight = UIParent:GetHeight()
@@ -618,360 +365,350 @@ function ToysByFunction:CreateMainFrame()
     local frameHeight = screenHeight * 0.4
 
     -- make sure its the minimum size
-    if frameWidth < self.constants.ui.mainFrame.minWidth then
-        frameWidth = self.constants.ui.mainFrame.minWidth
+    if frameWidth < ns.data.constants.ui.mainFrame.minWidth then
+        frameWidth = ns.data.constants.ui.mainFrame.minWidth
     end
-    if frameHeight < self.constants.ui.mainFrame.minHeight then
-        frameHeight = self.constants.ui.mainFrame.minHeight
+    if frameHeight < ns.data.constants.ui.mainFrame.minHeight then
+        frameHeight = ns.data.constants.ui.mainFrame.minHeight
     end
     
     -- use PortraitFrameTemplate which is more reliable in modern WoW
-    local frameName = "ToysByFunctionMainFrame"
-    local frame = CreateFrame("Frame", frameName, UIParent, "PortraitFrameTemplate")
-    frame:SetSize(frameWidth, frameHeight)
+    ns.data.ui.frame.main = CreateFrame("Frame", nil, UIParent, "PortraitFrameTemplate")
+    ns.data.ui.frame.main:SetSize(frameWidth, frameHeight)
 
     -- set the frame location
-    local posnRestored = self:RestoreFramePosition(frame, frameWidth, frameHeight)
+    local posnRestored = ns:RestoreFramePosition(ns.data.ui.frame.main, frameWidth, frameHeight)
 
     -- frame:SetPoint("CENTER")
-    frame:SetMovable(true)
-    frame:EnableMouse(true)
-    frame:RegisterForDrag("LeftButton")
-    frame:SetScript("OnDragStart", frame.StartMoving)
-    frame:SetScript("OnDragStop", function(self)
+    ns.data.ui.frame.main:SetMovable(true)
+    ns.data.ui.frame.main:EnableMouse(true)
+    ns.data.ui.frame.main:RegisterForDrag("LeftButton")
+    ns.data.ui.frame.main:SetScript("OnDragStart", ns.data.ui.frame.main.StartMoving)
+    ns.data.ui.frame.main:SetScript("OnDragStop", function()
         -- must be self; since this is a frame function
-        self:StopMovingOrSizing()
+        ns:StopMovingOrSizing()
         -- store window position; must use ToysByFunction since its an addon function
-        ToysByFunction:StoreFramePosition(self)
+        ns:StoreFramePosition(ns.data.ui.frame.main)
     end)
-    frame:SetFrameStrata("HIGH")
-    frame:SetTitle(self.L["Toys by Function"] or "Toys by Function")
-    frame:SetPortraitToAsset("Interface\\Icons\\inv_misc_coinbag_special")
+    ns.data.ui.frame.main:SetFrameStrata("HIGH")
+    ns.data.ui.frame.main:SetTitle(ns.L["Toys by Function"] or "Toys by Function")
+    ns.data.ui.frame.main:SetPortraitToAsset("Interface\\Icons\\inv_misc_coinbag_special")
     
     -- enable escape key functionality following WoW addon patterns
-    frame:SetScript("OnKeyDown", function(self, key)
+    ns.data.ui.frame.main:SetScript("OnKeyDown", function(_, key)
         if key == "ESCAPE" then
-            self:Hide()
+            ns.data.ui.frame.main:Hide()
         end
     end)
-    frame:EnableKeyboard(true)
-    frame:SetPropagateKeyboardInput(true)
+    ns.data.ui.frame.main:EnableKeyboard(true)
+    ns.data.ui.frame.main:SetPropagateKeyboardInput(true)
 
     -- setup OnShow event
-    frame:SetScript("OnShow", function(self)
+    ns.data.ui.frame.main:SetScript("OnShow", function()
         -- nothing yet
     end)
     
     -- register frame for escape key handling using WoW's standard system
-    tinsert(UISpecialFrames, frameName)
-    
-    -- finally return the frame
-    return frame
+    tinsert(UISpecialFrames, ns.data.ui.frame.main:GetName())
 end
 
 --[[---------------------------------------------------------------------------
     Function:   CreateLeftToyFrame
     Purpose:    Create the left frame for displaying the list of toys based on the selected tag.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:CreateLeftToyFrame()
+function ns:CreateLeftToyFrame()
     -- standard variables
-    local padding = self.constants.ui.generic.padding
+    local padding = ns.data.constants.ui.generic.padding
 
-    -- add label to left frame
-    local leftFrameLabel = ToysByFunctionMainFrame:CreateFontString("ToysByFunctionLeftFrameLabel", "ARTWORK", "GameFontNormal")
-    leftFrameLabel:SetJustifyH("LEFT")
-    leftFrameLabel:SetPoint("LEFT", ToysByFunctionMainFrame, "LEFT", padding, 0)
-    leftFrameLabel:SetPoint("TOP", ToysByFunctionMainFramePortrait, "BOTTOM", 0, -padding)
-    leftFrameLabel:SetText(self.L["Filtered List of Toys by Tag:"])
-    
-    -- create inset frame
-    local leftFrame = CreateFrame("Frame", "ToysByFunctionLeftToyFrame", ToysByFunctionMainFrame, "InsetFrameTemplate")
-    leftFrame:SetPoint("TOPLEFT", leftFrameLabel, "BOTTOMLEFT", 0, 0)
-    leftFrame:SetPoint("BOTTOMLEFT", ToysByFunctionMainFrame, "BOTTOMLEFT", padding, padding)
+    -- create frame to hold all the content on the left side
+    local leftFrame = CreateFrame("Frame", nil, ns.data.ui.frame.main)
+    leftFrame:SetPoint("TOPLEFT", ns.data.ui.frame.main, "TOPLEFT", padding, -60)
+    leftFrame:SetPoint("BOTTOMLEFT", ns.data.ui.frame.main, "BOTTOMLEFT", padding, padding)
     leftFrame:SetWidth(400)
 
+    -- add label to left frame
+    local leftFrameLabel = leftFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    leftFrameLabel:SetJustifyH("LEFT")
+    leftFrameLabel:SetPoint("TOPLEFT", leftFrame, "TOPLEFT", 0, 0)
+    leftFrameLabel:SetText(ns.L["Filtered List of Toys by Tag:"])
+    
+    -- create inset frame
+    local mainleft = CreateFrame("Frame", nil, leftFrame, "InsetFrameTemplate")
+    mainleft:SetPoint("TOPLEFT", leftFrameLabel, "BOTTOMLEFT", 0, 0)
+    mainleft:SetPoint("BOTTOMRIGHT", leftFrame, "BOTTOMRIGHT", 0, 0)
+
     -- label for dropdown
-    local dropdownLabel = leftFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local dropdownLabel = mainleft:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     dropdownLabel:SetJustifyH("LEFT")
-    dropdownLabel:SetText(self.L["Tag:"])
+    dropdownLabel:SetText(ns.L["Tag:"])
 
     -- initialize drop down items with "none" option
-    local items = {["none"] = self.L["No Tag Selected"]}
+    local items = {["none"] = ns.L["No Tag Selected"]}
 
     -- populate drop down with all tags
     -- for tagKey, tagData in pairs(self.tags) do
-    --     items[tagKey] = self.L[tagData.name] or tagData.name
+    --     items[tagKey] = ns.L[tagData.name] or tagData.name
     -- end
 
     -- set initial tag order
     local itemOrder = {"none"}
 
     -- create dropdown
-    self.ui.dropdown.filterToysByTag = self:CreateDropdown(leftFrame, itemOrder, items, "none", self:GetObjectName("DropdownFilterTag"), function(key)
+    ns.data.ui.dropdown.filterToysByTag = ns:CreateDropdown(mainleft, itemOrder, items, "none", ns.gets:GetObjectName("DropdownFilterTag"), function(key)
         -- track choice by character
         if key ~= "none" and key ~= nil then
-            -- need to add code to reload view of toys based on the selected tag
-            -- self:SetSelectedTag(key)
-            -- self:UpdateToyList()
             --@debug@
-            ToysByFunction:Print(("Tag Selected: %s"):format(key))
+            ns:Print(("Tag Selected: %s"):format(key))
             --@end-debug@
+            -- need to add code to reload view of toys based on the selected tag
+            -- ns:SetSelectedTag(key)
+            -- ns:UpdateToyList()
+            ns.sets:SetSelectedTag(key)
+            ns:PopulateToysByTag()
         end
     end)
-    self.ui.dropdown.filterToysByTag:SetWidth(200)
-
-    -- update the dropdown with the current tags
-    self:UpdateFilterBarTags()
+    ns.data.ui.dropdown.filterToysByTag:SetWidth(200)
 
     -- position the label and the dropdown
-    local dropdownOffset = (self.ui.dropdown.filterToysByTag:GetHeight() - dropdownLabel:GetStringHeight()) / 2
-    dropdownLabel:SetPoint("TOPLEFT", leftFrame, "TOPLEFT", padding, -(padding + dropdownOffset))
-    self.ui.dropdown.filterToysByTag:SetPoint("LEFT", dropdownLabel, "RIGHT", padding, 0)
+    local dropdownOffset = (ns.data.ui.dropdown.filterToysByTag:GetHeight() - dropdownLabel:GetStringHeight()) / 2
+    dropdownLabel:SetPoint("TOPLEFT", mainleft, "TOPLEFT", padding, -(padding + dropdownOffset))
+    ns.data.ui.dropdown.filterToysByTag:SetPoint("LEFT", dropdownLabel, "RIGHT", padding, 0)
 
     -- add scroll frame
-    local scrollContainer = CreateFrame("ScrollFrame", nil, leftFrame, "UIPanelScrollFrameTemplate")
-    scrollContainer:SetPoint("TOP", self.ui.dropdown.filterToysByTag, "BOTTOM", 0, -padding)
-    scrollContainer:SetPoint("LEFT", leftFrame, "LEFT", 5, 0)
-    scrollContainer:SetPoint("BOTTOMRIGHT", leftFrame, "BOTTOMRIGHT", -27, 5)
+    -- local scrollContainer = CreateFrame("ScrollFrame", nil, mainleft, "UIPanelScrollFrameTemplate")
+    -- scrollContainer:SetPoint("TOP", ns.data.ui.dropdown.filterToysByTag, "BOTTOM", 0, -padding)
+    -- scrollContainer:SetPoint("LEFT", mainleft, "LEFT", 5, 0)
+    -- scrollContainer:SetPoint("BOTTOMRIGHT", mainleft, "BOTTOMRIGHT", -27, 5)
 
     -- add scroll content frame
-    local leftContent = CreateFrame("Frame", nil, scrollContainer)
-    leftContent:SetWidth(scrollContainer:GetWidth() - 20)
-    leftContent:SetHeight(leftFrame:GetHeight() - 10)
-    scrollContainer:SetScrollChild(leftContent)
+    -- ns.data.ui.frame.filteredToys = CreateFrame("Frame", nil, scrollContainer)
+    -- ns.data.ui.frame.filteredToys:SetWidth(scrollContainer:GetWidth() - 20)
+    -- ns.data.ui.frame.filteredToys:SetHeight(mainleft:GetHeight() - 10)
+    -- scrollContainer:SetScrollChild(ns.data.ui.frame.filteredToys)
+
+    -- new scroll tech
+    ns.data.ui.scroll.toysLeft = ns:CreateToyScrollList(mainleft)
+
+    -- update the dropdown with the current tags
+    ns:UpdateFilterBarTags()
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   LoadToyList
-    Purpose:    Load the list of toys based on the selected tag and display them in the left frame.
+    Function:   CreateToyScrollList
+    Purpose:    Create a scrollable list frame for displaying toys.
+                This is Blizzards new version for scroll frames.
+    Arguments:  parent - the parent frame to attach the scroll list to
 -----------------------------------------------------------------------------]]
-function ToysByFunction:LoadToyList()
+function ns:CreateToyScrollList(parent)
+    -- standard variables
+    local padding = ns.data.constants.ui.generic.padding
 
+    -- 1. Create components
+    local scrollBox = CreateFrame("Frame", nil, parent, "WowScrollBoxList")
+    scrollBox:SetPoint("TOP", ns.data.ui.dropdown.filterToysByTag, "BOTTOM", 0, -padding)
+    scrollBox:SetPoint("LEFT", parent, "LEFT", 5, 0)
+    scrollBox:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -27, 5)
+
+    local scrollBar = CreateFrame("EventFrame", nil, parent, "MinimalScrollBar")
+    scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
+    scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
+
+    -- 2. Configure view with fixed row height; for variable-height elements
+    local view = CreateScrollBoxListLinearView()
+    view:SetElementExtentCalculator(function(dataIndex, data)
+        ns:Print(("Calculating height for dataIndex %d with name %s"):format(dataIndex, data.name or "Unknown"))
+        return 32 + padding + padding
+    end)
+
+    -- 3. Element initializer (called when a row becomes visible)
+    view:SetElementInitializer("InsetFrameTemplate", function(frame, data)
+        -- standard variables
+        local padding = ns.data.constants.ui.generic.padding
+
+        -- icon on left
+        if not frame.icon then
+            frame.icon = frame:CreateTexture(nil, "OVERLAY")
+            frame.icon:SetSize(32, 32)
+            frame.icon:SetPoint("TOPLEFT", frame, "TOPLEFT", padding, -padding)
+        end
+        frame.icon:SetTexture(data.icon or "Interface\\Icons\\inv_misc_questionmark")
+
+        -- toy name on top right of icon
+        if not frame.toyName then
+            frame.toyName = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            frame.toyName:SetJustifyH("LEFT")
+            frame.toyName:SetPoint("TOPLEFT", frame.icon, "TOPRIGHT", padding, 0)
+        end
+        frame.toyName:SetText(data.name or "Unknown Toy")
+
+        -- frame:SetScript("OnEnter", function(self)
+            -- GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            -- GameTooltip:SetText(data.tooltip or data.name, 1, 1, 1, nil, true)
+            -- GameTooltip:Show()
+        -- end)
+        -- frame:SetScript("OnLeave", GameTooltip_Hide)
+    end)
+
+    -- 4. Element resetter (cleanup when row scrolls out of view)
+    view:SetElementResetter(function(frame)
+        frame:SetScript("OnEnter", nil)
+        frame:SetScript("OnLeave", nil)
+    end)
+
+    -- 5. Connect everything
+    ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
+
+    -- 6. Auto-hide scrollbar when not needed
+    ScrollUtil.AddManagedScrollBarVisibilityBehavior(scrollBox, scrollBar)
+
+    --@debug@
+    ns:Print("Created Scroll Box List for Toys")
+    --@end-debug@
+
+    return scrollBox
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   CreateMainFrameFilterBar
-    Purpose:    Create the filter bar for the main frame.
+    Function:   UpdateToyList
+    Purpose:    Update the list of toys displayed in the left frame based on the selected tag.
 -----------------------------------------------------------------------------]]
--- function ToysByFunction:CreateMainFrameFilterBar()
---     -- standard variables
---     local padding = self.constants.ui.generic.padding
---     local frameHeight = 50
+function ns:PopulateToysByTag()
+    -- standard variables
+    local padding = ns.data.constants.ui.generic.padding
 
---     -- create top frame to hold filter controls
---     local filterBar = CreateFrame("Frame", "ToysByFunctionMainFrameFilterBar", ToysByFunctionMainFrame) --, "InsetFrameTemplate")
---     filterBar:SetPoint("TOPLEFT", ToysByFunctionMainFrame, "TOPLEFT", 65, -25)
---     filterBar:SetPoint("TOPRIGHT", ToysByFunctionMainFrame, "TOPRIGHT", -15, -25)
---     filterBar:SetHeight(frameHeight)
+    -- make sure frame exists before proceeding
+    -- if not ns.data.ui.frame.filteredToys then return end
 
-    
+    -- current selected tag
+    local selectedTag = ns.gets:GetSelectedTag() or "none"
 
---     -- readjust the filter bar height
---     frameHeight = self.ui.dropdown.filterTag:GetHeight() + (padding * 2)
---     filterBar:SetHeight(frameHeight)
--- end
+    -- create data provided for scrollbox
+    if not ns.data.dp.leftToyList then
+        ns.data.dp.leftToyList = CreateDataProvider()
+        --@debug@
+        ns:Print("Created DataProvider for Left Toy List")
+        --@end-debug@
+    end
+
+    -- loop over toys by tag if a selected tag is returned
+    if selectedTag ~= "none" then
+
+        -- track the index of frames
+        local frameIndex = 1
+        local prevIndex = 0
+        local previousFrame = ns.data.ui.frame.filteredToys
+
+        -- tracking frames
+        if not ns.data.ui.frame.items then
+            ns.data.ui.frame.items = {}
+            ns.data.ui.frame.itemIcons = {}
+            ns.data.itemFrameCount = 0
+        end
+
+        -- reset data provider
+        ns.data.dp.leftToyList:Flush()
+
+        -- loop over the toys in the tag listing and create frames for each toy
+        for _, itemId in pairs(ns.db.global.toys.byTag[selectedTag]) do
+            -- convert itemId to a string
+            local strItemId = tostring(itemId)
+
+            -- verify item exists
+            local itemInfo = {}
+            if ns.db.global.toys.byItemId[strItemId] then
+                -- -- get the toy item data
+                itemInfo = ns.db.global.toys.byItemId[strItemId]
+
+                --@debug@
+                ns:Print(("Processing toy with itemId %s for tag %s"):format(itemId, selectedTag))
+                --@end-debug@
+
+                -- item texture
+                local itemIconFileId = itemInfo.icon
+
+                -- add record to data provider
+                ns.data.dp.leftToyList:Insert({
+                    name = itemInfo.name,
+                    icon = itemIconFileId
+                })
+
+                -- -- get existing or create a frame to hold the item details
+                -- if not ns.data.ui.frame.items[frameIndex] then
+                --     ns.data.ui.frame.items[frameIndex] = CreateFrame("Frame", nil, ns.data.ui.frame.filteredToys, "InsetFrameTemplate")
+                --     if frameIndex == 1 then
+                --         ns.data.ui.frame.items[frameIndex]:SetPoint("TOPLEFT", ns.data.ui.frame.filteredToys, "TOPLEFT", 0, 0)
+                --         ns.data.ui.frame.items[frameIndex]:SetPoint("TOPRIGHT", ns.data.ui.frame.filteredToys, "TOPRIGHT", 0, 0)
+                --     else
+                --         ns.data.ui.frame.items[frameIndex]:SetPoint("TOPLEFT", ns.data.ui.frame.items[prevIndex], "BOTTOMLEFT", 0, 0)
+                --         ns.data.ui.frame.items[frameIndex]:SetPoint("TOPRIGHT", ns.data.ui.frame.items[prevIndex], "BOTTOMRIGHT", 0, 0)
+                --     end
+                --     ns.data.ui.frame.items[frameIndex]:SetHeight(32 + padding + padding)
+
+                --     ns.data.ui.frame.itemIcons[frameIndex] = ns.data.ui.frame.items[frameIndex]:CreateTexture(nil, "ARTWORK")
+                --     ns.data.ui.frame.itemIcons[frameIndex]:SetSize(32, 32)
+                --     ns.data.ui.frame.itemIcons[frameIndex]:SetPoint("TOPLEFT", ns.data.ui.frame.items[frameIndex], "TOPLEFT", padding, -padding)
+                --     ns.data.ui.frame.itemIcons[frameIndex]:SetTexture(itemIconFileId)
+                -- end
+
+                -- -- increase frame index on each loop
+                -- prevIndex = frameIndex
+                -- frameIndex = frameIndex + 1
+            else
+                --@debug@
+                ns:Print(("No item data found for itemId %s, skipping."):format(itemId))
+                --@end-debug@
+            end
+        end
+
+        -- pass refreshed data into scroll box
+        ns.data.ui.scroll.toysLeft:SetDataProvider(ns.data.dp.leftToyList)
+
+        --@debug@
+        ns:Print(("Total Toy Frames Created: %d"):format(#ns.data.ui.frame.items))
+        --@end-debug@
+    end
+end
 
 --[[---------------------------------------------------------------------------
     Function:   UpdateFilterBarTags
     Purpose:    Update the filter bar dropdown with the current tags.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:UpdateFilterBarTags()
+function ns:UpdateFilterBarTags()
     -- initialize drop down items with "none" option
     local items = {["none"] = self.L["No Tag Selected"]}
     local itemOrder = {"none"}
 
+    -- determine tag order
+    local tagOrder = {}
+
+    -- does player profile have an order? if not use global settings
+    if ns.db.profile[ns.data.currentPlayerServer].tags and ns.db.profile[ns.data.currentPlayerServer].tags.order then
+        tagOrder = ns.db.profile[ns.data.currentPlayerServer].tags.order
+    end
+    if #tagOrder == 0 then
+       tagOrder = ns.db.global.tags.order
+    end
+
     -- populate drop down with all tags
-    for tagID, tagData in pairs(ToysByFunctionDB.profile[self.currentPlayerServer].tags.order) do
-        items[tagID] = self.L[tagID] or tagID
+    for tagID, tagData in pairs(tagOrder) do
+        items[tagID] = ns.L[tagID] or tagID
         -- add 1 to the order number to account for the "none" option at the beginning
         local orderNbr = tagData.order + 1
         table.insert(itemOrder, orderNbr, tagID)
-        -- self:Print(("Filter Updated: %s (%s) with order %d"):format(tagID, self.L[tagID] or tagID, tagData.order))
+        -- ns:Print(("Filter Updated: %s (%s) with order %d"):format(tagID, ns.L[tagID] or tagID, tagData.order))
     end
 
     --@debug@
     -- for idx, id in pairs(itemOrder) do
-    --     ToysByFunction:Print(("Dropdown Item Order %d: %s"):format(idx, id))
+    --     ns:Print(("Dropdown Item Order %d: %s"):format(idx, id))
     -- end
     --@end-debug@
 
     -- get the last selected tag
-    local selectedItem = self:GetSelectedTag() or "none"
+    local selectedItem = ns.gets:GetSelectedTag() or "none"
 
     -- trigger update
-    self.ui.dropdown.filterToysByTag:UpdateItems(itemOrder, items, selectedItem)
-end
-
---[[---------------------------------------------------------------------------
-    Function:   MainFrameContent
-    Purpose:    Create the main content for the addon UI.
------------------------------------------------------------------------------]]
-function ToysByFunction:CreateMainFrameContent()
-    -- standard variables
-    local padding = self.constants.ui.generic.padding
-
-    -- create sub frame
-    local contentFrame = CreateFrame("Frame", "ToysByFunctionMainFrameContent", ToysByFunctionMainFrame)
-    contentFrame:SetPoint("TOPLEFT", ToysByFunctionMainFrameFilterBar, "BOTTOMLEFT", 0, -padding)
-    contentFrame:SetPoint("BOTTOMRIGHT", ToysByFunctionMainFrame, "BOTTOMRIGHT", 0, padding) 
-end
-
---[[---------------------------------------------------------------------------
-    Function:   CreateOptionsPanel
-    Purpose:    Create a single options pane for the Interface Options.
-    Note:       This function should be called after the mini-map button is created in order to get proper visibility status.
------------------------------------------------------------------------------]]
-function ToysByFunction:CreateOptionsPanel()
-    -- create the main options panel frame
-    local panel = CreateFrame("Frame", "ToysByFunctionOptionsPanel", InterfaceOptionsFramePanelContainer)
-    panel.name = self.L["Toys by Function"] or "Toys by Function"
-    
-    -- create title
-    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
-    title:SetText(self.L["Toys by Function"] or "Toys by Function")
-    
-    -- create description
-    local description = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -16)
-    description:SetPoint ("RIGHT", panel, "RIGHT", -16, 0)
-    description:SetJustifyH("LEFT")
-    description:SetWordWrap(true)
-    description:SetText(self.L["Toys by Function allows you to manage your toys by what action they perform."] .. "\n\n" .. self.L["You can open the Toys by Function interface using the following slash commands or, if visible, left clicking the mini-map button:"] .. "\n\n - /toysbyfunction\n - /tbf")
-    
-    -- create button to open the addon
-    local openButton = CreateFrame("Button", "ToysByFunctionOpenButton", panel, "UIPanelButtonTemplate")
-    openButton:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -24)
-    openButton:SetSize(150, 22)
-    openButton:SetText(self.L["Open Toys by Function"] or "Open Toys by Function")
-    openButton:SetScript("OnClick", function()
-        self:ShowUI()
-        -- Close the settings panel properly using WoW's UI system
-        if SettingsPanel and SettingsPanel:IsShown() then
-            HideUIPanel(SettingsPanel)
-        end
-    end)
-    
-    -- create checkbox for minimap button visibility
-    local minimapCheckbox = self:CreateCheckbox(
-        panel,
-        self.L["Show Mini-map Button"],
-        self:GetMinimapButtonVisible(),
-        "ToysByFunctionMinimapVisibilityCheckbox",
-        function(self, button, checked)
-            -- must use 'ToysByFunction' instead of 'self' since it's passing a function as a parameter
-            ToysByFunction:SetMinimapButtonVisible(checked)
-            ToysByFunction:UpdateMinimapButtonVisibility()
-        end
-    )
-    minimapCheckbox:SetPoint("TOPLEFT", openButton, "BOTTOMLEFT", 0, -16)
-
-    -- add a note if any of the libraries are missing
-    if self.minimap.libstubStatus == false or self.minimap.libdbiconStatus == false or self.minimap.libdbStatus == false then
-        local libStubNote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        libStubNote:SetPoint("TOPLEFT", minimapCheckbox, "BOTTOMLEFT", 0, -8)
-        libStubNote:SetPoint("RIGHT", panel, "RIGHT", -16, 0)
-        libStubNote:SetJustifyH("LEFT")
-        libStubNote:SetWordWrap(true)
-        libStubNote:SetText(self.L["Note: LibDBIcon-1.0 is missing or one of its dependencies (LibStub and LibDataBroker), therefore, mini-map button cannot be created. Also, not sure why, but LibDBIcon-1.0 may not show up in the addon list even if it is installed."])
-    end
-    
-    -- add to Interface Options (modern system only)
-    local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
-    
-    -- must set the category ID
-    category.ID = self.optionID
-    Settings.RegisterAddOnCategory(category)
-
-    -- store category reference for opening later
-    panel.optionsCategory = category
-    
-    -- store panel reference globally for minimap button access
-    self.optionsPanel = panel
-end
-
---[[---------------------------------------------------------------------------
-    Function:   CreateMinimapButton
-    Purpose:    Create minimap button using LibDBIcon-1.0.
------------------------------------------------------------------------------]]
-function ToysByFunction:CreateMinimapButton()
-    -- check if LibStub and LibDBIcon are available
-    if not LibStub then
-        self.minimap.libstubStatus = false
-        return
-    end
-    
-    local LibDBIcon = LibStub:GetLibrary("LibDBIcon-1.0", true)
-    if not LibDBIcon then
-        self.minimap.libdbiconStatus = false
-        return
-    end
-    
-    local LDB = LibStub:GetLibrary("LibDataBroker-1.1", true)
-    if not LDB then
-        self.minimap.libdbStatus = false
-        return
-    end
-    
-    -- Create the data broker object
-    local minimapLDB = LDB:NewDataObject("ToysByFunction", {
-        type = "launcher",
-        text = "ToysByFunction",
-        icon = "Interface\\Icons\\inv_misc_coinbag_special",
-        OnClick = function(clickedframe, button)
-            if button == "LeftButton" then
-                self:ShowUI()
-            elseif button == "RightButton" then
-                -- open to addon options pane if it was created successfully, if not just open the panel normally
-                -- self.optionsPanel is the actual frame built for the addon options
-                -- self.optionID is the static string value assigned to the addons options pane
-                if self.optionsPanel and Settings then
-                    Settings.OpenToCategory(self.optionID)
-                else
-                    -- let user know there was an issue, then open the options panel normally
-                    self:Print(self.L["Issue with addon options panel, cannot open settings."])
-                    self.optionsPanel:Show()
-                end
-            end
-        end,
-        OnTooltipShow = function(tooltip)
-            if not tooltip or not tooltip.AddLine then return end
-            tooltip:AddLine(self.L["Toys by Function"] or "Toys by Function")
-            tooltip:AddLine(self.L["Click to open Toys by Function"] or "Click to open Toys by Function", 1, 1, 1)
-            tooltip:AddLine(self.L["Right-click for Options"] or "Right-click for Options", 1, 1, 1)
-        end,
-    })
-    
-    -- Initialize database for minimap settings if needed
-    if not ToysByFunctionDB.global.minimap then
-        ToysByFunctionDB.global.minimap = {
-            hide = false,
-        }
-    end
-    
-    -- Register with LibDBIcon
-    LibDBIcon:Register("ToysByFunction", minimapLDB, ToysByFunctionDB.global.minimap)
-    
-    -- Store reference
-    self.minimapLDB = minimapLDB
-end
-
---[[---------------------------------------------------------------------------
-    Function:   UpdateMinimapButtonVisibility
-    Purpose:    Update the minimap button visibility using LibDBIcon.
------------------------------------------------------------------------------]]
-function ToysByFunction:UpdateMinimapButtonVisibility()
-    local LibDBIcon = LibStub and LibStub:GetLibrary("LibDBIcon-1.0", true)
-    if not LibDBIcon or not self.minimapLDB then
-        return
-    end
-    
-    local shouldShow = self:GetMinimapButtonVisible()
-    if shouldShow then
-        LibDBIcon:Show("ToysByFunction")
-    else
-        LibDBIcon:Hide("ToysByFunction")
-    end
+    ns.data.ui.dropdown.filterToysByTag:UpdateItems(itemOrder, items, selectedItem)
 end
 
 --EOF

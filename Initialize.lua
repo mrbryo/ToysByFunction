@@ -5,8 +5,78 @@
 	Description: 	All initialization needed for the addon to function.
 -----------------------------------------------------------------------------]]
 
+local addonName, ns = ...
+
+-- ─── Secret Value helper (Midnight 12.0) ─────────────────
+ns.SECRETS_ENABLED = type(issecretvalue) == "function"
+function ns.SafeValue(val, fallback)
+    if ns.SECRETS_ENABLED and issecretvalue(val) then return fallback end
+    return val
+end
+
+-- ─── Table-dispatch event dispatcher ─────────────────────
+local eventFrame = CreateFrame("Frame")
+local eventHandlers = {}
+eventFrame:SetScript("OnEvent", function(self, event, ...)
+    local handler = eventHandlers[event]
+    if handler then handler(self, event, ...) end
+end)
+local function RegisterEvent(event, handler)
+    eventHandlers[event] = handler
+    eventFrame:RegisterEvent(event)
+end
+ns.RegisterEvent = RegisterEvent
+
+-- ─── ADDON_LOADED: SavedVariables init + slash commands ──
+RegisterEvent("ADDON_LOADED", function(self, event, loadedAddon)
+    if loadedAddon ~= addonName then return end
+    eventFrame:UnregisterEvent("ADDON_LOADED")
+
+    ToysByFunctionDB = ToysByFunctionDB or {}
+	if ns.defaults then
+		for key, defaultValue in pairs(ns.defaults) do
+			if ToysByFunctionDB[key] == nil then ToysByFunctionDB[key] = defaultValue end
+		end
+    end
+    ns.db = ToysByFunctionDB
+
+    --[[ slash command must be global to work correctly; I know there is another way to do it but not important right now. ]]
+	local slashKey = "TOYSBYFUNCTION"
+	_G["SLASH_" .. slashKey .. "1"] = "/toysbyfunction"
+	_G["SLASH_" .. slashKey .. "2"] = "/tbf"
+    SlashCmdList[slashKey] = function(input)
+        local cmd = strlower(strtrim(input or ""))
+        if cmd == "config" or cmd == "options" then
+            if ns.data.settingsCategoryID then Settings.OpenToCategory(ns.settingsCategoryID) end
+        elseif cmd == "toggle" then
+            ns.db.enabled = not ns.db.enabled
+        elseif cmd == "reset" then
+            for key, value in pairs(ns.defaults) do ns.db[key] = value end
+		elseif cmd == "enablemodedeveloper" then
+			if not ns:GetDevMode() or ns:GetDevMode() == false then
+                ns:EnableDevelopment()
+            else
+                ns:DisableDevelopment()
+            end
+        else
+            print("/toysbyfunction config — Open Settings")
+            print("/toysbyfunction toggle — Enable/Disable")
+            print("/toysbyfunction reset  — Reset settings to defaults.")
+			--@debug@
+			print("/toysbyfunction enablemodedeveloper — Toggle development mode.")
+			--@end-debug@
+        end
+    end
+
+    if ns.RegisterSettings then ns:RegisterSettings() end
+
+	--@debug@
+	ns:Print(("Addon Loaded - %s"):format(addonName))
+	--@end-debug@
+end)
+
 -- instantiate variable to hold functionality!
-ToysByFunction = {
+ns.data = {
 	-- always set to false so the event can set it to true
 	hasPlayerEnteredWorld = false,
 	modules = {},
@@ -19,12 +89,8 @@ ToysByFunction = {
 	-- addon ui columns
 	columns = {},
 
-	-- track minimap button issues
-	minimap = {
-		libdbiconStatus = true,
-		libdbStatus = true,
-		libstubStatus = true,
-	},
+	-- data providers
+	dp = {},
 
 	-- addon access to UI elements
 	ui = {
@@ -71,118 +137,182 @@ ToysByFunction = {
 		},
 	},
 
-	-- ui tabs
-	uitabs = {
-		["order"] = {},
-		["varnames"] = {},
-		["buttons"] = {},
-		["buttonref"] = {},
-		["tabframe"] = {},
-	},
-
 	-- track timers
 	timers = {},
 }
 
--- initialize the main db
-if not ToysByFunctionDB then
-	ToysByFunctionDB = {}
-end
+--[[--------------------------------------------------------------------------
+	Event:	PLAYER_LOGIN
+	Purpose:	Start features once the world is ready.
+-----------------------------------------------------------------------------]]
+RegisterEvent("PLAYER_LOGIN", function(self, event, ...)
+	-- get event parameters
+	local isInitialLogin, isReload = ...
 
---[[ slash command must be global to work correctly; I know there is another way to do it but not important right now. ]]
+	-- trigger Enable function if addon enabled; this is where the addon starts doing its thing
+    if ns.db.enabled and ns.Enable then ns:Enable() end
 
--- register slash commands
-SLASH_TOYSBYFUNCTION1 = "/toysbyfunction"
-SLASH_TOYSBYFUNCTION2 = "/tbf"
- 
--- register slash command function
-SlashCmdList.TOYSBYFUNCTION = function(msg, editBox)
-	ToysByFunction:SlashCommand(msg)
-end
+	--@debug@
+	ns:Print(("Event Triggered - %s, isInitialLogin: %s, isReload: %s"):format(event, tostring(isInitialLogin) and ns.L["Yes"] or ns.L["No"], tostring(isReload) and ns.L["Yes"] or ns.L["No"]))
+	--@end-debug@
+
+	-- instantiate player keys
+	ns.sets:SetKeyPlayerServerSpec()
+	ns.sets:SetKeyPlayerServer()
+
+	-- run db initializer
+	ns:InstantiateDB()
+        
+	-- update global variable for tracking if event has triggered
+	ns.data.hasPlayerEnteredWorld = true
+end)
+
+--[[--------------------------------------------------------------------------
+	Event:		PLAYER_LOGOUT
+	Purpose:	Save any necessary data before the player logs out.
+-----------------------------------------------------------------------------]]
+RegisterEvent("PLAYER_LOGOUT", function(self, event, ...)
+	--@debug@
+	ns:Print(("Event Triggered - %s"):format(event))
+	--@end-debug@
+	ns:EventPlayerLogout()
+end)
+
+--[[--------------------------------------------------------------------------
+	Event:		VARIABLES_LOADED
+	Purpose:	Handle any necessary actions after variables are loaded.
+-----------------------------------------------------------------------------]]
+RegisterEvent("VARIABLES_LOADED", function(self, event, ...)
+	--@debug@
+	ns:Print(("Event Triggered - %s"):format(event))
+	--@end-debug@
+end)
 
 --[[---------------------------------------------------------------------------
-	Function:   AddModule
-	Purpose:    Add a module to the addon.
+    Function:   EventPlayerLogout
+    Purpose:    Handle functionality which is best or must wait for the PLAYER_LOGOUT event.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:AddModule(name, module)
-	local module = {}
-	module.name = name
-	module.parent = self
-	self.modules[name] = module
-	return module
-end
-
---[[---------------------------------------------------------------------------
-	Function:   GetModule
-	Purpose:    Retrieve a module from the addon.
------------------------------------------------------------------------------]]
-function ToysByFunction:GetModule(name)
-	return self.modules[name]
+function ns:EventPlayerLogout()
+    --@debug@
+    if ns.gets:GetDevMode() == true then ns:Print(ns.L["Player Logging Out..."]) end
+    --@end-debug@
 end
 
 --[[---------------------------------------------------------------------------
 	Function:   Print
 	Purpose:    Standard print function for the addon.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:Print(msg)
+function ns:Print(msg)
 	if msg then
-		print(("%s%s:|r %s"):format("|cffffd100", ToysByFunction.L["Toys by Function"], tostring(msg)))
+		print(("%s%s:|r %s"):format("|cffffd100", ns.L["Toys by Function"], tostring(msg)))
 	end
-end
-
---[[---------------------------------------------------------------------------
-	Function:   RegisterEvent
-	Purpose:    Register new events with in the addon.
------------------------------------------------------------------------------]]
-function ToysByFunction:RegisterEvent(event, handler)
-	--@debug@
-	-- self:Print(("Registering Event: %s"):format(event))
-	--@end-debug@
-	self.events[event] = handler or function() end
-	self.eventFrame:RegisterEvent(event)
 end
 
 --[[---------------------------------------------------------------------------
 	Function:   Timer
 	Purpose:    Create a timer to call a function after a delay.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:Timer(name, delay, func)
+function ns:Timer(name, delay, func)
 	-- if timer already exists; clear and cancel it first
-	if ToysByFunction.timers[name] then
-		ToysByFunction.timers[name]:Cancel()
-		ToysByFunction.TimerClear(name)
+	if ns.data.timers[name] then
+		ns.data.timers[name]:Cancel()
+		ns:TimerClear(name)
 	end
 
 	-- trigger new timer
-	ToysByFunction.timers[name] = C_Timer.After(delay, func)
+	ns.data.timers[name] = C_Timer.After(delay, func)
 end
 
 --[[---------------------------------------------------------------------------
 	Function:   TimerClear
 	Purpose:    Clear a timer by name.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:TimerClear(name)
-	if ToysByFunction.timers[name] then
-		ToysByFunction.timers[name] = nil
+function ns:TimerClear(name)
+	if ns.data.timers[name] then
+		ns.data.timers[name] = nil
 	end
 end
 
 --[[---------------------------------------------------------------------------
-	Function:   UnregisterEvent
-	Purpose:    Unregister events within the addon.
+    Function:   InstantiateDB
+    Purpose:    Ensure the DB has all the necessary values. Can run anytime to check and fix all data with default values.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:UnregisterEvent(event)
-	self.events[event] = nil
-	self.eventFrame:UnregisterEvent(event)
+function ns:InstantiateDB()
+    --@debug@
+    if self.gets:GetDevMode() == true then
+        self:Print(ns.L["DB Initialization"])
+    end
+    --@end-debug@
+    -- make sure player key is set
+    self.sets:SetKeyPlayerServerSpec()
+    self.sets:SetKeyPlayerServer()
+
+    -- instantiate db
+    self:InstantiateDBProfile()
+    self:InstantiateDBGlobal()
+    self:InstantiateDBChar()
 end
 
 --[[---------------------------------------------------------------------------
-	Initialize addon loaded event.
+    Function:   InstantiateDBChar
+    Purpose:    Ensure the character specific DB structure exists and has all necessary values.
 -----------------------------------------------------------------------------]]
-ToysByFunction.eventFrame = CreateFrame("Frame")
-ToysByFunction.eventFrame:SetScript("OnEvent", function(self, event, ...)
-	-- NOTE: Can't use self on any functions or variables...must use addon variable for a function parameter to work correctly here since this is a function passed as a parameter.
+function ns:InstantiateDBChar(barID)
+    -- create the character structure
+    if not ns.char then
+        ns.char = {}
+    end
 
-	-- trigger function handler assigned to the registered event
-	ToysByFunction.events[event](self, event, ...)
-end)
+    -- currentBarData holds the last scan of data fetched from the action bars for the current character; hence stored in char
+    if not ns.char[ns.data.currentPlayerServerSpec] then
+        ns.char[ns.data.currentPlayerServerSpec] = {}
+    end
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   InstantiateDBGlobal
+    Purpose:    Ensure the global DB structure exists and has all necessary values.
+-----------------------------------------------------------------------------]]
+function ns:InstantiateDBGlobal(barID)
+    -- create the global structure
+    ns.sets:SetupGlobalDB()
+
+    -- instantiate toy db
+    if not ns.db.global.toys then
+        ns.db.global.toys = {}
+    end
+
+	-- if tags is empty, create it
+	if not ns.db.global.tags then
+		ns.db.global.tags = {}
+	end
+
+	-- if order is empty create it
+	if not ns.db.global.tags.order then
+		ns.db.global.tags.order = {}
+	end
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   InstantiateDBProfile
+    Purpose:    Ensure the profile DB structure exists and has all necessary values.
+-----------------------------------------------------------------------------]]
+function ns:InstantiateDBProfile()
+    -- create/fix/update the profile structure
+    self.sets:SetupProfileDB()
+
+    -- create initial value for storing custom tag settings
+    if not ns.db.profile[ns.data.currentPlayerServer].tags then
+        ns.db.profile[ns.data.currentPlayerServer].tags = {}
+    end
+
+    -- create inital value for storing custom tags
+    if not ns.db.profile[ns.data.currentPlayerServer].tags.custom then
+        ns.db.profile[ns.data.currentPlayerServer].tags.custom = {}
+    end
+
+    -- create initial value for storing custom tags and/or order
+    if not ns.db.profile[ns.data.currentPlayerServer].tags.order then
+        ns.db.profile[ns.data.currentPlayerServer].tags.order = {}
+    end
+end

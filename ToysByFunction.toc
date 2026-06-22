@@ -2,18 +2,26 @@
 ## Title: Toys by Function
 ## Notes: Automatically show toys based on character situation.
 ## Author: mrbryo
-## Version: 0.1-alpha
-## OptionalDeps: LibDBIcon-1.0
+## Version: @project-version@
+## SavedVariables: ToysByFunctionDB
+## OptionalDeps:
+## IconTexture: Interface\Icons\inv_misc_coinbag_special
 ## X-Curse-Project-ID: 000
 ## X-Curse-Project-Name: Toys By Function
-## SavedVariables: ToysByFunctionDB
 ## X-MrBryo-Repository: https://github.com/mrbryo/ToysByFunction
-## IconTexture: Interface\Icons\inv_misc_coinbag_special
 ## Category-enUS: Collections
+
+## Minimap Button
+## -- Called when the user clicks the compartment entry.
+## AddonCompartmentFunc: ToysByFunctionAddon_OnClick
+## -- Called when the mouse enters the entry (show tooltip).
+## AddonCompartmentFuncOnEnter: ToysByFunctionAddon_OnEnter
+## -- Called when the mouse leaves the entry (hide tooltip).
+## AddonCompartmentFuncOnLeave: ToysByFunctionAddon_OnLeave
 
 ## Initialize Addon
 Initialize.lua
-ToyDB.lua
+TagDefaults.lua
 
 ## Language Files
 locale\enUS.lua
@@ -27,10 +35,17 @@ locale\ruRU.lua
 locale\zhCN.lua
 locale\zhTW.lua
 
+## Libraries
+libs\StandardUI.lua
+libs\Toys.lua
+
+## 3rd Party Libraries
+#@no-lib-strip@
+#@end-no-lib-strip@
+
 ## Main
 Sets.lua
 Gets.lua
+Options.lua
 Main.lua
-
-## Libraries
-libs\StandardUI.lua
+Minimap.lua

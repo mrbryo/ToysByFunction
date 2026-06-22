@@ -1,3 +1,12 @@
+--[[ ------------------------------------------------------------------------
+	Title: 			StandardUI.lua
+	Author: 		mrbryo
+	Create Date : 	2026-Jun-21
+	Description: 	Standardize UI element creation for the addon.
+-----------------------------------------------------------------------------]]
+
+local addonName, ns = ...
+
 --[[---------------------------------------------------------------------------
     Function:   CreateStandardButton
     Purpose:    Standardize button creation.
@@ -7,7 +16,7 @@
                 onClick  - Callback function when the button is clicked
     Returns:    The created Button frame.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:CreateStandardButton(parent, buttonName, text, width, onClick)
+function ns:CreateStandardButton(parent, buttonName, text, width, onClick)
     local button = CreateFrame("Button", buttonName, parent, "GameMenuButtonTemplate")
     button:SetSize(width or 120, 22)
     button:SetText(text)
@@ -24,7 +33,7 @@ end
                 readOnly - Boolean to set if the edit box is read-only
     Returns:    The created EditBox frame.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:CreateEditBox(parent, width, height, readOnly, onEnter)
+function ns:CreateEditBox(parent, width, height, readOnly, onEnter)
     local editBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
     editBox:SetSize(width or 200, height or 20)
     editBox:SetAutoFocus(false)
@@ -52,7 +61,7 @@ end
                 color     - Color table {r, g, b} for the text (optional)
     Returns:    None
 -----------------------------------------------------------------------------]]
-function ToysByFunction:SetLabelWithTimer(label, text, duration, color)
+function ns:SetLabelWithTimer(label, text, duration, color)
     if not label then return end
     
     duration = duration or 3.0  -- Default 3 seconds
@@ -87,7 +96,7 @@ end
                 onChanged    - Callback function when the checkbox state changes
     Returns:    The created CheckButton frame.
 ----------------------------------------------------------------------------]]
-function ToysByFunction:CreateCheckbox(parent, text, initialValue, frameName, OnClick)
+function ns:CreateCheckbox(parent, text, initialValue, frameName, OnClick)
     -- create checkbox
     local checkbox = CreateFrame("CheckButton", frameName, parent, "ChatConfigCheckButtonTemplate")
 
@@ -118,7 +127,7 @@ end
                 onSelectionChanged - Callback function when the selection changes
     Returns:    The created Dropdown frame.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:CreateDropdown(parent, itemOrder, items, initialValue, frameName, onChange)
+function ns:CreateDropdown(parent, itemOrder, items, initialValue, frameName, onChange)
     -- create dropdown and set it up
     local dropdown = CreateFrame("DropdownButton", frameName, parent, "WowStyle1DropdownTemplate")
     

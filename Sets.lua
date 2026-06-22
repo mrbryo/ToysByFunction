@@ -1,11 +1,21 @@
+--[[ ------------------------------------------------------------------------
+	Title: 			Gets.lua
+	Author: 		mrbryo
+	Create Date : 	2026-Jun-05
+	Description: 	All getter functions for the addon.
+-----------------------------------------------------------------------------]]
+
+local addonName, ns = ...
+ns.sets = {}
+
 --[[---------------------------------------------------------------------------
     Function:   GetKeyPlayerServerSpec
     Purpose:    Get a formatted value with player, server and current spec names.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:SetKeyPlayerServerSpec()
+function ns.sets:SetKeyPlayerServerSpec()
     -- verify variable is setup
-    if not self.currentPlayerServerSpec then
-        self.currentPlayerServerSpec = ""
+    if not ns.data.currentPlayerServerSpec then
+        ns.data.currentPlayerServerSpec = ""
     end
 
     -- get player and server name
@@ -27,10 +37,10 @@ function ToysByFunction:SetKeyPlayerServerSpec()
 
     -- finally return the special key
     if not specName then
-        self.currentPlayerServerSpec = self.L["Unknown"]
+        ns.data.currentPlayerServerSpec = ns.L["Unknown"]
     else
-        self.currentPlayerServerSpec = ("%s-%s-%s"):format(unitName, unitServer, specName) or nil
-        self.currentPlayerServerSpecNoHyphens = ("%s%s%s"):format(unitName, unitServer, specName) or nil
+        ns.data.currentPlayerServerSpec = ("%s-%s-%s"):format(unitName, unitServer, specName) or nil
+        ns.data.currentPlayerServerSpecNoHyphens = ("%s%s%s"):format(unitName, unitServer, specName) or nil
     end
 end
 
@@ -38,28 +48,28 @@ end
     Function:   GetKeyPlayerServer
     Purpose:    Get a formatted value with player and server name.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:SetKeyPlayerServer()
+function ns.sets:SetKeyPlayerServer()
     -- verify variable's are setup
-    if not self.currentPlayerServer then
-        self.currentPlayerServer = ""
+    if not ns.data.currentPlayerServer then
+        ns.data.currentPlayerServer = ""
     end
-    if not self.currentPlayerServerWithSpace then
-        self.currentPlayerServerWithSpace = ""
+    if not ns.data.currentPlayerServerWithSpace then
+        ns.data.currentPlayerServerWithSpace = ""
     end
 
     -- get player and server name
     local unitName, unitServer = UnitFullName("player")
 
     -- set values
-    self.currentPlayerServer = ("%s-%s"):format(unitName, unitServer)
-    self.currentPlayerServerWithSpace = ("%s - %s"):format(unitName, unitServer)
+    ns.data.currentPlayerServer = ("%s-%s"):format(unitName, unitServer)
+    ns.data.currentPlayerServerWithSpace = ("%s - %s"):format(unitName, unitServer)
 end
 
 --[[---------------------------------------------------------------------------
     Function:   SetupGlobalDB
     Purpose:    Setup the global DB with default values if they don't already exist.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:SetupGlobalDB()
+function ns.sets:SetupGlobalDB()
     -- create whole DB if missing
     if not ToysByFunctionDB then ToysByFunctionDB = {} end
 
@@ -67,13 +77,27 @@ function ToysByFunction:SetupGlobalDB()
     if not ToysByFunctionDB.global then
         ToysByFunctionDB.global = {}
     end
+
+    -- create toys data structure
+    if not ns.db.global.toys then
+        ns.db.global.toys = {}
+    end
+    if not ns.db.global.toys.byItemId then
+        ns.db.global.toys.byItemId = {}
+    end
+    if not ns.db.global.toys.byTag then
+        ns.db.global.toys.byTag = {}
+    end
+    if not ns.db.global.toys.order then
+        ns.db.global.toys.order = {}
+    end
 end
 
 --[[---------------------------------------------------------------------------
     Function:   SetMinimapButtonVisible
     Purpose:    Set whether the minimap button should be visible.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:SetMinimapButtonVisible(visible)
+function ns.sets:SetMinimapButtonVisible(visible)
     if not ToysByFunctionDB or not ToysByFunctionDB.global then
         return
     end
@@ -91,9 +115,9 @@ end
     Function:   SetupProfileDB
     Purpose:    Ensure the profile specific database structure is setup.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:SetupProfileDB()
+function ns.sets:SetupProfileDB()
     -- make sure the current player key is set
-    if not self.currentPlayerServer then return false end
+    if not ns.data.currentPlayerServer then return false end
 
     -- create whole DB if missing
     if not ToysByFunctionDB then ToysByFunctionDB = {} end
@@ -102,21 +126,21 @@ function ToysByFunction:SetupProfileDB()
     if not ToysByFunctionDB.profile then ToysByFunctionDB.profile = {} end
 
     -- add current character if missing
-    if not ToysByFunctionDB.profile[self.currentPlayerServer] then
-        ToysByFunctionDB.profile[self.currentPlayerServer] = {}
+    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer] then
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer] = {}
     end
 
     -- initialize UI settings if they don't exist
-    if not ToysByFunctionDB.profile[self.currentPlayerServer].ui then
-        ToysByFunctionDB.profile[self.currentPlayerServer].ui = {}
+    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui then
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui = {}
     end
-    if not ToysByFunctionDB.profile[self.currentPlayerServer].ui.positions then
-        ToysByFunctionDB.profile[self.currentPlayerServer].ui.positions = {}
+    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions then
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions = {}
     end
 
     -- selected tag default
-    if not ToysByFunctionDB.profile[self.currentPlayerServer].selectedTag then
-        ToysByFunctionDB.profile[self.currentPlayerServer].selectedTag = "none"
+    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].selectedTag then
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].selectedTag = "none"
     end
 
     -- return true if we get to here in the code
@@ -127,15 +151,15 @@ end
     Function:   SetSelectedTag
     Purpose:    Set the currently selected tag for filtering toys.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:SetSelectedTag(tagKey)
+function ns.sets:SetSelectedTag(tagKey)
     -- make sure the current player key is set
-    if not self.currentPlayerServer then return end
+    if not ns.data.currentPlayerServer then return end
 
     -- ensure profile DB structure exists
     local isSet = self:SetupProfileDB()
     
     if isSet == true then
-        ToysByFunctionDB.profile[self.currentPlayerServer].selectedTag = tagKey
+        ns.db.profile[ns.data.currentPlayerServer].selectedTag = tagKey
     end
 end
 
@@ -148,24 +172,24 @@ end
                 xOfs - the x offset from the relative point
                 yOfs - the y offset from the relative point
 -----------------------------------------------------------------------------]]
-function ToysByFunction:SetFramePosition(frameName, point, relativePoint, xOfs, yOfs)
+function ns.sets:SetFramePosition(frameName, point, relativePoint, xOfs, yOfs)
     -- make sure the current player key is set
-    if not self.currentPlayerServer then return false end
+    if not ns.data.currentPlayerServer then return false end
 
     -- ensure profile DB structure exists
     local isSet = self:SetupProfileDB()
     
     if isSet == true then
         -- create index for this frame
-        if not ToysByFunctionDB.profile[self.currentPlayerServer].ui.positions[frameName] then
-            ToysByFunctionDB.profile[self.currentPlayerServer].ui.positions[frameName] = {}
+        if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName] then
+            ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName] = {}
         end
         
         -- Store position data
-        ToysByFunctionDB.profile[self.currentPlayerServer].ui.positions[frameName].point = point
-        ToysByFunctionDB.profile[self.currentPlayerServer].ui.positions[frameName].relativePoint = relativePoint
-        ToysByFunctionDB.profile[self.currentPlayerServer].ui.positions[frameName].xOffset = xOfs
-        ToysByFunctionDB.profile[self.currentPlayerServer].ui.positions[frameName].yOffset = yOfs
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName].point = point
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName].relativePoint = relativePoint
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName].xOffset = xOfs
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName].yOffset = yOfs
 
         -- return true since storage was successful
         return true

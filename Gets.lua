@@ -1,8 +1,18 @@
+--[[ ------------------------------------------------------------------------
+	Title: 			Gets.lua
+	Author: 		mrbryo
+	Create Date : 	2026-Jun-05
+	Description: 	All getter functions for the addon.
+-----------------------------------------------------------------------------]]
+
+local addonName, ns = ...
+ns.gets = {}
+
 --[[---------------------------------------------------------------------------
     Function:   GetDevMode
     Purpose:    Get the developer mode for the current character.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:GetDevMode()
+function ns.gets:GetDevMode()
     local defaultValue = false
     defaultValue = false
     --@debug@
@@ -11,40 +21,40 @@ function ToysByFunction:GetDevMode()
     --@end-debug@
 
     -- get player unique key; if not already set
-    if not self.currentPlayerServerSpec and self.currentPlayerServerSpec ~= self.L["Unknown"] then
+    if not ns.data.currentPlayerServerSpec and ns.data.currentPlayerServerSpec ~= self.L["Unknown"] then
         return defaultValue
     end
 
     -- check dev mode exists, if not set it to false
-    if not ToysByFunctionDB.char then
-        ToysByFunctionDB.char = {}
+    if not ns.db.char then
+        ns.db.char = {}
     end
-    if not ToysByFunctionDB.char[self.currentPlayerServerSpec] then
-        ToysByFunctionDB.char[self.currentPlayerServerSpec] = {}
+    if not ns.db.char[ns.data.currentPlayerServerSpec] then
+        ns.db.char[ns.data.currentPlayerServerSpec] = {}
     end
-    if not ToysByFunctionDB.char[self.currentPlayerServerSpec].isDevMode then
-        ToysByFunctionDB.char[self.currentPlayerServerSpec].isDevMode = false
+    if not ns.db.char[ns.data.currentPlayerServerSpec].isDevMode then
+        ns.db.char[ns.data.currentPlayerServerSpec].isDevMode = false
     end
 
     --@debug@
-    -- ToysByFunctionDB.char[self.currentPlayerServerSpec].isDevMode = defaultValue
+    -- ToysByFunctionDB.char[ns.data.currentPlayerServerSpec].isDevMode = defaultValue
     --@end-debug@
 
     -- finally return the dev mode value
-    return ToysByFunctionDB.char[self.currentPlayerServerSpec].isDevMode
+    return ns.db.char[ns.data.currentPlayerServerSpec].isDevMode
 end
 
 --[[---------------------------------------------------------------------------
     Function:   GetMinimapButtonVisible
     Purpose:    Get whether the minimap button should be visible (defaults to true).
 -----------------------------------------------------------------------------]]
-function ToysByFunction:GetMinimapButtonVisible()
-    if not ToysByFunctionDB or not ToysByFunctionDB.global then
+function ns.gets:GetMinimapButtonVisible()
+    if not ns.db or not ns.db.global then
         return true -- default to showing the button
     end
     
-    if ToysByFunctionDB.global.minimap and ToysByFunctionDB.global.minimap.hide ~= nil then
-        return not ToysByFunctionDB.global.minimap.hide -- LibDBIcon uses 'hide' property, we want 'show'
+    if ns.db.global.minimap and ns.db.global.minimap.hide ~= nil then
+        return not ns.db.global.minimap.hide -- LibDBIcon uses 'hide' property, we want 'show'
     end
     
     return true -- default to showing the button
@@ -55,18 +65,18 @@ end
     Purpose:    Retrieve the position of a frame from the profile database.
     Parameters: frameName - the name of the frame
 -----------------------------------------------------------------------------]]
-function ToysByFunction:GetFramePosition(frameName)
+function ns.gets:GetFramePosition(frameName)
     -- make sure the current player key is set
-    if not self.currentPlayerServer then return false end
+    if not ns.data.currentPlayerServer then return false end
 
     -- ensure profile DB structure exists
-    local isSet = self:SetupProfileDB()
+    local isSet = ns.sets:SetupProfileDB()
     
     if isSet == true then
         -- retrieve position data
-        return ToysByFunctionDB.profile[self.currentPlayerServer].ui.positions[frameName] or self.L["Unknown"]
+        return ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName] or ns.L["Unknown"]
     else
-        return self.L["Unknown"]
+        return ns.L["Unknown"]
     end
 end
 
@@ -74,25 +84,25 @@ end
     Function:   GetObjectName
     Purpose:    Create frame object name with addon prefix.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:GetObjectName(postfix)
+function ns.gets:GetObjectName(postfix)
     if not postfix then postfix = "UnknownObjectName" end
-    return ("%s%s"):format(ToysByFunction.prefix, postfix)
+    return ("%s%s"):format(ns.data.prefix, postfix)
 end
 
 --[[---------------------------------------------------------------------------
     Function:   GetSelectedTag
     Purpose:    Get the currently selected tag for filtering toys.
 -----------------------------------------------------------------------------]]
-function ToysByFunction:GetSelectedTag()
+function ns.gets:GetSelectedTag()
     -- make sure the current player key is set
-    if not self.currentPlayerServer then return false end
+    if not ns.data.currentPlayerServer then return false end
 
     -- ensure profile DB structure exists
-    local isSet = self:SetupProfileDB()
+    local isSet = ns.sets:SetupProfileDB()
     
     if isSet == true then
         -- retrieve position data
-        return ToysByFunctionDB.profile[self.currentPlayerServer].selectedTag or "none"
+        return ns.db.profile[ns.data.currentPlayerServer].selectedTag or "none"
     else
         return "none"
     end
@@ -102,9 +112,9 @@ end
     Function:   HasCustomTags
     Purpose:    Check if the user has any custom tags.
 -----------------------------------------------------------------------------]]
--- function ToysByFunction:HasCustomTags()
+-- function ns.gets:HasCustomTags()
 --     local count = 0
---     for _ in pairs(ToysByFunctionDB.profile[self.currentPlayerServer].tags.custom) do
+--     for _ in pairs(ns.db.profile[ns.data.currentPlayerServer].tags.custom) do
 --         count = count + 1
 --         break -- we only need to know if at least one entry exists
 --     end
@@ -115,9 +125,9 @@ end
     Function:   HasCustomTagOrder
     Purpose:    Check if the user has a custom tag order defined.
 -----------------------------------------------------------------------------]]
--- function ToysByFunction:HasCustomTagOrder()
+-- function ns.gets:HasCustomTagOrder()
 --     local count = 0
---     for _ in pairs(ToysByFunctionDB.profile[self.currentPlayerServer].tags.order) do
+--     for _ in pairs(ns.db.profile[ns.data.currentPlayerServer].tags.order) do
 --         count = count + 1
 --         break -- we only need to know if at least one entry exists
 --     end

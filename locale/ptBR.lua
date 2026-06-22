@@ -3,14 +3,10 @@
     Language: Portuguese (ptBR)
 -----------------------------------------------------------------------------]]
 
--- make sure locales variable exists
-if not ToysByFunction.locales then
-    ToysByFunction.locales = {}
-end
+local addonName, ns = ...
+if GetLocale() ~= "ptBR" then return end
 
--- add the locale
-ToysByFunction.locales["ptBR"] = {}
-local L = ToysByFunction.locales["ptBR"]
+local L = ns.L
 
 -- following line is replaced when packaged through curseforge using their localization tool
 --@localization(locale="ptBR", format="lua_additive_table", handle-subnamespaces="concat", handle-unlocalized="english")@

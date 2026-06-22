@@ -3,14 +3,10 @@
     Language: French (frFR)
 -----------------------------------------------------------------------------]]
 
--- make sure locales variable exists
-if not ToysByFunction.locales then
-    ToysByFunction.locales = {}
-end
+local addonName, ns = ...
+if GetLocale() ~= "frFR" then return end
 
--- add the locale
-ToysByFunction.locales["frFR"] = {}
-local L = ToysByFunction.locales["frFR"]
+local L = ns.L
 
 -- following line is replaced when packaged through curseforge using their localization tool
 --@localization(locale="frFR", format="lua_additive_table", handle-subnamespaces="concat", handle-unlocalized="english")@

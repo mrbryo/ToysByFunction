@@ -3,14 +3,10 @@
     Language: Chinese (zhCN)
 -----------------------------------------------------------------------------]]
 
--- make sure locales variable exists
-if not ToysByFunction.locales then
-    ToysByFunction.locales = {}
-end
+local addonName, ns = ...
+if GetLocale() ~= "zhCN" then return end
 
--- add the locale
-ToysByFunction.locales["zhCN"] = {}
-local L = ToysByFunction.locales["zhCN"]
+local L = ns.L
 
 -- following line is replaced when packaged through curseforge using their localization tool
 --@localization(locale="zhCN", format="lua_additive_table", handle-subnamespaces="concat", handle-unlocalized="english")@
