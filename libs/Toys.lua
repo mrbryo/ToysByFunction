@@ -94,6 +94,20 @@ function ns.ToyFunctions:LoadToyList(toyCount)
             defaultTags = ns.data.TagsByItem[toyItemId] or {}
         end
 
+        -- can player use toy?
+        local canUseToy = C_ToyBox.IsToyUsable(toyItemId)
+
+        -- get tooltip data
+        -- local tooltipData = C_TooltipInfo.GetItemByID(toyItemId)
+        -- local lines = ""
+        -- for _, line in ipairs(tooltipData.lines) do
+        --     if lines == "" then
+        --         lines = line.leftText or ""
+        --     else
+        --         lines = lines .. "\n" .. (line.leftText or "")
+        --     end
+        -- end
+
         -- instantiate local toy data table
         local toyInfo = {
             toyIndex = toyIndex,
@@ -104,8 +118,15 @@ function ns.ToyFunctions:LoadToyList(toyCount)
             isFavorite = isFavorite or currentToyData.isFavorite or false,
             hasFanfare = hasFanfare or currentToyData.hasFanfare or false,
             itemQuality = itemQuality or currentToyData.itemQuality or ns.L["Unknown"],
+            canUse = canUseToy or currentToyData.canUse or false,
             status = "Found",
-            tags = currentToyData.tags or defaultTags
+            tags = currentToyData.tags or defaultTags,
+            -- lines = lines,
+            -- ["C_TooltipInfo.GetItemByID"] = {
+            --     type = tooltipData.type or currentToyData["C_TooltipInfo.GetItemByID"].type or ns.L["Unknown"],
+            --     dataInstanceID = tooltipData.dataInstanceID or currentToyData["C_TooltipInfo.GetItemByID"].dataInstanceID or ns.L["Unknown"],
+            --     lines = tooltipData.lines or currentToyData["C_TooltipInfo.GetItemByID"].lines or ns.L["Unknown"],
+            -- }
         }
 
         -- update status if no data returned from API

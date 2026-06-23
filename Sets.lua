@@ -143,6 +143,22 @@ function ns.sets:SetupProfileDB()
         ToysByFunctionDB.profile[ns.data.currentPlayerServer].selectedTag = "none"
     end
 
+    -- toy sorting order defaults; default to A-Z sorting if not set
+    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].toySortingOrder then
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].toySortingOrder = {}
+    end
+    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].toySortingOrder.main then
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].toySortingOrder.main = "az"
+    end
+
+    -- show tooltips; main frame is set to true by default
+    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].showTooltips then
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].showTooltips = {}
+    end
+    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].showTooltips.main then
+        ToysByFunctionDB.profile[ns.data.currentPlayerServer].showTooltips.main = true
+    end
+
     -- return true if we get to here in the code
     return true
 end
@@ -160,6 +176,37 @@ function ns.sets:SetSelectedTag(tagKey)
     
     if isSet == true then
         ns.db.profile[ns.data.currentPlayerServer].selectedTag = tagKey
+    end
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   SetToySortingOrderMainConfig
+    Purpose:    Set the current toy sorting order for the main config.
+-----------------------------------------------------------------------------]]
+function ns.sets:SetToySortingOrderMainConfig(orderKey)
+    -- make sure the current player key is set
+    if not ns.data.currentPlayerServer then return end
+
+    -- ensure profile db structure exists
+    local isSet = self:SetupProfileDB()
+
+    if isSet == true then
+        if not ns.db.profile[ns.data.currentPlayerServer].toySortingOrder then
+            ns.db.profile[ns.data.currentPlayerServer].toySortingOrder = {}
+        end
+        ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.main = orderKey
+    end
+end
+
+function ns.sets:SetOptionShowToyTooltips(value)
+    -- make sure the current player key is set
+    if not ns.data.currentPlayerServer then return end
+
+    -- ensure profile db structure exists
+    local isSet = self:SetupProfileDB()
+
+    if isSet == true then
+        ns.db.profile[ns.data.currentPlayerServer].showTooltips.main = value
     end
 end
 

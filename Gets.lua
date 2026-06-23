@@ -99,12 +99,46 @@ function ns.gets:GetSelectedTag()
 
     -- ensure profile DB structure exists
     local isSet = ns.sets:SetupProfileDB()
-    
+
     if isSet == true then
-        -- retrieve position data
+        -- retrieve selected tag
         return ns.db.profile[ns.data.currentPlayerServer].selectedTag or "none"
     else
         return "none"
+    end
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   GetToySortingOrderMainConfig
+    Purpose:    Get the current toy sorting order for the main config.
+-----------------------------------------------------------------------------]]
+function ns.gets:GetToySortingOrderMainConfig()
+    -- make sure the current player key is set
+    if not ns.data.currentPlayerServer then return false end
+
+    -- ensure profile DB structure exists
+    local isSet = ns.sets:SetupProfileDB()
+
+    if isSet == true then
+        -- retrieve toy sorting order
+        return ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.main
+    else
+        return "az"
+    end
+end
+
+function ns.gets:GetOptionShowToyTooltips()
+    -- make sure the current player key is set
+    if not ns.data.currentPlayerServer then return false end
+
+    -- ensure profile DB structure exists
+    local isSet = ns.sets:SetupProfileDB()
+
+    if isSet == true then
+        -- retrieve show toy tooltips option
+        return ns.db.profile[ns.data.currentPlayerServer].showTooltips.main
+    else
+        return true -- default to showing tooltips
     end
 end
 

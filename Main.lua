@@ -386,7 +386,7 @@ function ns:CreateMainFrame()
     ns.data.ui.frame.main:SetScript("OnDragStart", ns.data.ui.frame.main.StartMoving)
     ns.data.ui.frame.main:SetScript("OnDragStop", function()
         -- must be self; since this is a frame function
-        ns:StopMovingOrSizing()
+        ns.data.ui.frame.main:StopMovingOrSizing()
         -- store window position; must use ToysByFunction since its an addon function
         ns:StoreFramePosition(ns.data.ui.frame.main)
     end)
@@ -431,7 +431,7 @@ function ns:CreateLeftToyFrame()
     leftFrameLabel:SetJustifyH("LEFT")
     leftFrameLabel:SetPoint("TOPLEFT", leftFrame, "TOPLEFT", 0, 0)
     leftFrameLabel:SetText(ns.L["Filtered List of Toys by Tag:"])
-    
+
     -- create inset frame
     local mainleft = CreateFrame("Frame", nil, leftFrame, "InsetFrameTemplate")
     mainleft:SetPoint("TOPLEFT", leftFrameLabel, "BOTTOMLEFT", 0, 0)
@@ -444,11 +444,6 @@ function ns:CreateLeftToyFrame()
 
     -- initialize drop down items with "none" option
     local items = {["none"] = ns.L["No Tag Selected"]}
-
-    -- populate drop down with all tags
-    -- for tagKey, tagData in pairs(self.tags) do
-    --     items[tagKey] = ns.L[tagData.name] or tagData.name
-    -- end
 
     -- set initial tag order
     local itemOrder = {"none"}
@@ -474,17 +469,55 @@ function ns:CreateLeftToyFrame()
     dropdownLabel:SetPoint("TOPLEFT", mainleft, "TOPLEFT", padding, -(padding + dropdownOffset))
     ns.data.ui.dropdown.filterToysByTag:SetPoint("LEFT", dropdownLabel, "RIGHT", padding, 0)
 
-    -- add scroll frame
-    -- local scrollContainer = CreateFrame("ScrollFrame", nil, mainleft, "UIPanelScrollFrameTemplate")
-    -- scrollContainer:SetPoint("TOP", ns.data.ui.dropdown.filterToysByTag, "BOTTOM", 0, -padding)
-    -- scrollContainer:SetPoint("LEFT", mainleft, "LEFT", 5, 0)
-    -- scrollContainer:SetPoint("BOTTOMRIGHT", mainleft, "BOTTOMRIGHT", -27, 5)
+    -- add menu button for sorting
+    local sortButton = ns:CreateStandardButton(mainleft, nil, ns.L["Sort"], 40, function()
+        -- local functions for sorting menu button
+        local function SetToySortingOrderMainConfig(orderKey)
+            --@debug@
+            ns:Print(("SetToySortingOrderMainConfig called with orderKey: %s"):format(tostring(orderKey)))
+            --@end-debug@
+            ns.sets:SetToySortingOrderMainConfig(orderKey)
+            ns:PopulateToysByTag()
+        end
+        local function GetToySortingOrderMainConfig()
+            local value = ns.gets:GetToySortingOrderMainConfig()
+            --@debug@
+            ns:Print(("GetToySortingOrderMainConfig returned value: %s"):format(tostring(value)))
+            --@end-debug@
+            return value
+        end
+        
+        -- create menu
+        MenuUtil.CreateRadioContextMenu(owner, GetToySortingOrderMainConfig, SetToySortingOrderMainConfig,
+            {ns.L["A-Z"], "az"},
+            {ns.L["Z-A"], "za"}
+        )
+    end)
+    sortButton:SetPoint("LEFT", ns.data.ui.dropdown.filterToysByTag, "RIGHT", padding, 0)
 
-    -- add scroll content frame
-    -- ns.data.ui.frame.filteredToys = CreateFrame("Frame", nil, scrollContainer)
-    -- ns.data.ui.frame.filteredToys:SetWidth(scrollContainer:GetWidth() - 20)
-    -- ns.data.ui.frame.filteredToys:SetHeight(mainleft:GetHeight() - 10)
-    -- scrollContainer:SetScrollChild(ns.data.ui.frame.filteredToys)
+    -- add menu button for options
+    local optionButton = ns:CreateStandardButton(mainleft, nil, ns.L["Options"], 65, function()
+        -- local functions for options menu button
+        local function SetOptionShowToyTooltips(value)
+            --@debug@
+            ns:Print(("SetOptionShowToyTooltips called with value: %s"):format(tostring(value)))
+            --@end-debug@
+            ns.sets:SetOptionShowToyTooltips(value)
+        end
+        local function GetOptionShowToyTooltips()
+            local value = ns.gets:GetOptionShowToyTooltips()
+            --@debug@
+            ns:Print(("GetOptionShowToyTooltips returned value: %s"):format(tostring(value)))
+            --@end-debug@
+            return value
+        end
+
+        -- create menu
+        MenuUtil.CreateCheckboxContextMenu(owner, GetOptionShowToyTooltips, SetOptionShowToyTooltips,
+            {ns.L["Show Toy Tooltips"], 1}
+        )
+    end)
+    optionButton:SetPoint("LEFT", sortButton, "RIGHT", padding, 0)
 
     -- new scroll tech
     ns.data.ui.scroll.toysLeft = ns:CreateToyScrollList(mainleft)
@@ -507,7 +540,7 @@ function ns:CreateToyScrollList(parent)
     local scrollBox = CreateFrame("Frame", nil, parent, "WowScrollBoxList")
     scrollBox:SetPoint("TOP", ns.data.ui.dropdown.filterToysByTag, "BOTTOM", 0, -padding)
     scrollBox:SetPoint("LEFT", parent, "LEFT", 5, 0)
-    scrollBox:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -27, 5)
+    scrollBox:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -17, 5)
 
     local scrollBar = CreateFrame("EventFrame", nil, parent, "MinimalScrollBar")
     scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
@@ -516,7 +549,9 @@ function ns:CreateToyScrollList(parent)
     -- 2. Configure view with fixed row height; for variable-height elements
     local view = CreateScrollBoxListLinearView()
     view:SetElementExtentCalculator(function(dataIndex, data)
-        ns:Print(("Calculating height for dataIndex %d with name %s"):format(dataIndex, data.name or "Unknown"))
+        --@debug@
+        -- ns:Print(("Calculating height for dataIndex %d with name %s"):format(dataIndex, data.name or "Unknown"))
+        --@end-debug@
         return 32 + padding + padding
     end)
 
@@ -541,12 +576,29 @@ function ns:CreateToyScrollList(parent)
         end
         frame.toyName:SetText(data.name or "Unknown Toy")
 
-        -- frame:SetScript("OnEnter", function(self)
-            -- GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            -- GameTooltip:SetText(data.tooltip or data.name, 1, 1, 1, nil, true)
-            -- GameTooltip:Show()
-        -- end)
-        -- frame:SetScript("OnLeave", GameTooltip_Hide)
+        -- tooltip data
+        -- if not frame.lines then
+        --     frame.lines = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        --     frame.lines:SetJustifyH("LEFT")
+        --     frame.lines:SetPoint("TOPLEFT", frame.toyName, "BOTTOMLEFT", 0, -padding)
+        --     frame.lines:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -padding, padding)
+        -- end
+        -- frame.lines:SetText(data.lines)
+        -- local newHeight = frame.toyName:GetStringHeight() + frame.lines:GetStringHeight() + (padding * 3)
+        -- frame:SetHeight(newHeight)
+
+        -- add tooltip functionality
+        frame:SetScript("OnEnter", function(self)
+            local showTooltips = ns.gets:GetOptionShowToyTooltips()
+            if not showTooltips then return end
+
+            if showTooltips == true then
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetToyByItemID(data.itemId)
+                GameTooltip:Show()
+            end
+        end)
+        frame:SetScript("OnLeave", GameTooltip_Hide)
     end)
 
     -- 4. Element resetter (cleanup when row scrolls out of view)
@@ -586,7 +638,7 @@ function ns:PopulateToysByTag()
     if not ns.data.dp.leftToyList then
         ns.data.dp.leftToyList = CreateDataProvider()
         --@debug@
-        ns:Print("Created DataProvider for Left Toy List")
+        -- ns:Print("Created DataProvider for Left Toy List")
         --@end-debug@
     end
 
@@ -620,7 +672,7 @@ function ns:PopulateToysByTag()
                 itemInfo = ns.db.global.toys.byItemId[strItemId]
 
                 --@debug@
-                ns:Print(("Processing toy with itemId %s for tag %s"):format(itemId, selectedTag))
+                -- ns:Print(("Processing toy with itemId %s for tag %s"):format(itemId, selectedTag))
                 --@end-debug@
 
                 -- item texture
@@ -628,34 +680,13 @@ function ns:PopulateToysByTag()
 
                 -- add record to data provider
                 ns.data.dp.leftToyList:Insert({
+                    itemId = itemId,
                     name = itemInfo.name,
-                    icon = itemIconFileId
+                    icon = itemIconFileId,
                 })
-
-                -- -- get existing or create a frame to hold the item details
-                -- if not ns.data.ui.frame.items[frameIndex] then
-                --     ns.data.ui.frame.items[frameIndex] = CreateFrame("Frame", nil, ns.data.ui.frame.filteredToys, "InsetFrameTemplate")
-                --     if frameIndex == 1 then
-                --         ns.data.ui.frame.items[frameIndex]:SetPoint("TOPLEFT", ns.data.ui.frame.filteredToys, "TOPLEFT", 0, 0)
-                --         ns.data.ui.frame.items[frameIndex]:SetPoint("TOPRIGHT", ns.data.ui.frame.filteredToys, "TOPRIGHT", 0, 0)
-                --     else
-                --         ns.data.ui.frame.items[frameIndex]:SetPoint("TOPLEFT", ns.data.ui.frame.items[prevIndex], "BOTTOMLEFT", 0, 0)
-                --         ns.data.ui.frame.items[frameIndex]:SetPoint("TOPRIGHT", ns.data.ui.frame.items[prevIndex], "BOTTOMRIGHT", 0, 0)
-                --     end
-                --     ns.data.ui.frame.items[frameIndex]:SetHeight(32 + padding + padding)
-
-                --     ns.data.ui.frame.itemIcons[frameIndex] = ns.data.ui.frame.items[frameIndex]:CreateTexture(nil, "ARTWORK")
-                --     ns.data.ui.frame.itemIcons[frameIndex]:SetSize(32, 32)
-                --     ns.data.ui.frame.itemIcons[frameIndex]:SetPoint("TOPLEFT", ns.data.ui.frame.items[frameIndex], "TOPLEFT", padding, -padding)
-                --     ns.data.ui.frame.itemIcons[frameIndex]:SetTexture(itemIconFileId)
-                -- end
-
-                -- -- increase frame index on each loop
-                -- prevIndex = frameIndex
-                -- frameIndex = frameIndex + 1
             else
                 --@debug@
-                ns:Print(("No item data found for itemId %s, skipping."):format(itemId))
+                -- ns:Print(("No item data found for itemId %s, skipping."):format(itemId))
                 --@end-debug@
             end
         end
@@ -664,7 +695,7 @@ function ns:PopulateToysByTag()
         ns.data.ui.scroll.toysLeft:SetDataProvider(ns.data.dp.leftToyList)
 
         --@debug@
-        ns:Print(("Total Toy Frames Created: %d"):format(#ns.data.ui.frame.items))
+        -- ns:Print(("Total Toy Frames Created: %d"):format(#ns.data.ui.frame.items))
         --@end-debug@
     end
 end
@@ -709,6 +740,10 @@ function ns:UpdateFilterBarTags()
 
     -- trigger update
     ns.data.ui.dropdown.filterToysByTag:UpdateItems(itemOrder, items, selectedItem)
+end
+
+function ns:CreateMaintainTags()
+
 end
 
 --EOF
