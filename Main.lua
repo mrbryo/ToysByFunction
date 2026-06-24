@@ -345,6 +345,9 @@ function ns:ShowUI(openDelaySeconds)
 
         -- load left side
         ns:CreateLeftToyFrame()
+
+        -- load tag maintenance frame
+        ns:CreateMaintainTags()
     end
 
     -- display the frame
@@ -425,21 +428,21 @@ function ns:CreateLeftToyFrame()
     local padding = ns.data.constants.ui.generic.padding
 
     -- create frame to hold all the content on the left side
-    local leftFrame = CreateFrame("Frame", nil, ns.data.ui.frame.main)
-    leftFrame:SetPoint("TOPLEFT", ns.data.ui.frame.main, "TOPLEFT", padding, -60)
-    leftFrame:SetPoint("BOTTOMLEFT", ns.data.ui.frame.main, "BOTTOMLEFT", padding, padding)
-    leftFrame:SetWidth(400)
+    ns.data.ui.frame.leftFrame = CreateFrame("Frame", nil, ns.data.ui.frame.main)
+    ns.data.ui.frame.leftFrame:SetPoint("TOPLEFT", ns.data.ui.frame.main, "TOPLEFT", padding, -60)
+    ns.data.ui.frame.leftFrame:SetPoint("BOTTOMLEFT", ns.data.ui.frame.main, "BOTTOMLEFT", padding, padding)
+    ns.data.ui.frame.leftFrame:SetWidth(400)
 
     -- add label to left frame
-    local leftFrameLabel = leftFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local leftFrameLabel = ns.data.ui.frame.leftFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     leftFrameLabel:SetJustifyH("LEFT")
-    leftFrameLabel:SetPoint("TOPLEFT", leftFrame, "TOPLEFT", 0, 0)
+    leftFrameLabel:SetPoint("TOPLEFT", ns.data.ui.frame.leftFrame, "TOPLEFT", 0, 0)
     leftFrameLabel:SetText(ns.L["Filtered List of Toys by Tag:"])
 
     -- create inset frame
-    local mainleft = CreateFrame("Frame", nil, leftFrame, "InsetFrameTemplate")
+    local mainleft = CreateFrame("Frame", nil, ns.data.ui.frame.leftFrame, "InsetFrameTemplate")
     mainleft:SetPoint("TOPLEFT", leftFrameLabel, "BOTTOMLEFT", 0, 0)
-    mainleft:SetPoint("BOTTOMRIGHT", leftFrame, "BOTTOMRIGHT", 0, 0)
+    mainleft:SetPoint("BOTTOMRIGHT", ns.data.ui.frame.leftFrame, "BOTTOMRIGHT", 0, 0)
 
     -- label for dropdown
     local dropdownLabel = mainleft:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -514,7 +517,9 @@ function ns:CreateToyMainOptionsButton(parent)
 
     local function IsTooltipEnabled()
         local value = ns.gets:GetOptionShowToyTooltips()
-        ns:Print(("(IsTooltipEnabled) Show Toy Tooltips option is: %s"):format(tostring(value)))
+        --@debug@
+        -- ns:Print(("(IsTooltipEnabled) Show Toy Tooltips option is: %s"):format(tostring(value)))
+        --@end-debug@
         return value
     end
 
@@ -534,11 +539,6 @@ function ns:CreateToyMainOptionsButton(parent)
     button:SetText(ns.L["Options"])
     button:SetupMenu(GeneratorFunction)
 
-    -- MenuUtil.CreateRadioContextMenu(button, GetToySortingOrderMainConfig, SetToySortingOrderMainConfig,
-    --     {ns.L["A-Z"], "az"},
-    --     {ns.L["Z-A"], "za"}
-    -- )
-
     -- finally return the button to be positioned and visible in the UI
     return button
 end
@@ -557,7 +557,7 @@ function ns:CreateToyScrollList(parent)
     local scrollBox = CreateFrame("Frame", nil, parent, "WowScrollBoxList")
     scrollBox:SetPoint("TOP", ns.data.ui.dropdown.filterToysByTag, "BOTTOM", 0, -padding)
     scrollBox:SetPoint("LEFT", parent, "LEFT", 5, 0)
-    scrollBox:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -17, 5)
+    scrollBox:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -20, 5)
 
     local scrollBar = CreateFrame("EventFrame", nil, parent, "MinimalScrollBar")
     scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
@@ -578,7 +578,7 @@ function ns:CreateToyScrollList(parent)
         local padding = ns.data.constants.ui.generic.padding
 
         -- icon on left
-        if not frame.icon then
+        if frame.icon == nil then
             frame.icon = frame:CreateTexture(nil, "OVERLAY")
             frame.icon:SetSize(32, 32)
             frame.icon:SetPoint("TOPLEFT", frame, "TOPLEFT", padding, -padding)
@@ -638,7 +638,7 @@ function ns:CreateToyScrollList(parent)
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   UpdateToyList
+    Function:   PopulateToysByTag
     Purpose:    Update the list of toys displayed in the left frame based on the selected tag.
 -----------------------------------------------------------------------------]]
 function ns:PopulateToysByTag()
@@ -747,8 +747,184 @@ function ns:UpdateFilterBarTags()
     ns.data.ui.dropdown.filterToysByTag:UpdateItems(itemOrder, items, selectedItem)
 end
 
+--[[---------------------------------------------------------------------------
+    Function:   CreateMaintainTags
+    Purpose:    Create a frame for maintaining tags.
+-----------------------------------------------------------------------------]]
 function ns:CreateMaintainTags()
+    -- standard variables
+    local padding = ns.data.constants.ui.generic.padding
 
+    -- create frame to hold all content for maintaining tags
+    ns.data.ui.frame.tagMaint = CreateFrame("Frame", nil, ns.data.ui.frame.main) --, "InsetFrameTemplate")
+    ns.data.ui.frame.tagMaint:SetPoint("TOPLEFT", ns.data.ui.frame.leftFrame, "TOPRIGHT", padding, 0)
+    ns.data.ui.frame.tagMaint:SetPoint("BOTTOMLEFT", ns.data.ui.frame.leftFrame, "BOTTOMRIGHT", padding, 0)
+    ns.data.ui.frame.tagMaint:SetWidth(400)
+
+    -- add title to frame
+    local titleLabel = ns.data.ui.frame.tagMaint:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    titleLabel:SetJustifyH("LEFT")
+    titleLabel:SetPoint("TOPLEFT", ns.data.ui.frame.tagMaint, "TOPLEFT", 0, 0)
+    titleLabel:SetText(ns.L["Maintain Tags:"])
+
+    -- create inset frame
+    local insetFrame = CreateFrame("Frame", nil, ns.data.ui.frame.leftFrame, "InsetFrameTemplate")
+    insetFrame:SetPoint("TOPLEFT", titleLabel, "BOTTOMLEFT", 0, 0)
+    insetFrame:SetPoint("BOTTOMRIGHT", ns.data.ui.frame.tagMaint, "BOTTOMRIGHT", 0, 0)
+
+    -- create scroll box for tag maintenance
+    ns.data.ui.scroll.tagMaint = ns:CreateToyMaintScrollList(insetFrame)
+
+    -- 7. Populate the scroll box with tag data
+    ns:PopulateTagMaintList()
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   CreateToyMaintScrollList
+    Purpose:    Create a scrollable list frame for maintaining tags.
+                This is Blizzards new version for scroll frames.
+    Arguments:  parent - the parent frame to attach the scroll list to
+-----------------------------------------------------------------------------]]
+function ns:CreateToyMaintScrollList(parent)
+    -- standard variables
+    local padding = ns.data.constants.ui.generic.padding
+
+    -- frame label
+    local scrollBoxLabel = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    scrollBoxLabel:SetJustifyH("LEFT")
+    scrollBoxLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", padding, -padding)
+    scrollBoxLabel:SetText(ns.L["Pick a tag or click 'New Tag':"])
+
+    -- create parent frame for the scroll box
+    local scrollBoxParent = CreateFrame("Frame", nil, parent, "InsetFrameTemplate")
+    scrollBoxParent:SetPoint("TOPLEFT", scrollBoxLabel, "BOTTOMLEFT", 0, -5)
+    scrollBoxParent:SetPoint("BOTTOM", parent, "BOTTOM", 0, padding)
+    scrollBoxParent:SetWidth(parent:GetWidth() / 2)
+
+    -- 1. Create components
+    local scrollBox = CreateFrame("Frame", nil, scrollBoxParent, "WowScrollBoxList")
+    scrollBox:SetPoint("TOPLEFT", scrollBoxParent, "TOPLEFT", 5, -5)
+    scrollBox:SetPoint("BOTTOMRIGHT", scrollBoxParent, "BOTTOMRIGHT", -20, 5)
+
+    local scrollBar = CreateFrame("EventFrame", nil, scrollBoxParent, "MinimalScrollBar")
+    scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
+    scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
+
+    -- 2. Configure view with fixed row height; for variable-height elements
+    local view = CreateScrollBoxListLinearView()
+    ns.data.ui.height.toyMaintCell = 30
+    view:SetElementExtentCalculator(function(dataIndex, data)
+        --@debug@
+        -- ns:Print(("Calculating height for dataIndex %d with name %s"):format(dataIndex, data.name or "Unknown"))
+        --@end-debug@
+        return ns.data.ui.height.toyMaintCell
+    end)
+
+    -- 3. Element initializer (called when a row becomes visible)
+    view:SetElementInitializer("BackdropTemplate", function(frame, data)
+        -- standard variables
+        local padding = ns.data.constants.ui.generic.padding
+
+        -- track global names of checkboxes
+        if ns.data.ui.checkbox == nil then
+            ns.data.ui.checkbox = {}
+        end
+        if ns.data.ui.checkbox.tagMaint == nil then
+            ns.data.ui.checkbox.tagMaint = {}
+        end
+
+        -- checkbox with the tag as a label
+        if frame.tagCheckbox == nil then
+            -- create global name
+            local checkboxName = ns.gets:GetObjectName("CheckboxTagMaint" .. data.tagId)
+
+            -- add to list
+            if ns.data.ui.checkbox.tagMaint[checkboxName] == nil then
+                table.insert(ns.data.ui.checkbox.tagMaint, checkboxName)
+            end
+
+            -- create checkbox
+            frame.tagCheckbox = CreateFrame("CheckButton", checkboxName, frame, "UICheckButtonTemplate")
+            frame.tagCheckbox:SetPoint("LEFT", frame, "LEFT", padding, 0)
+            frame.tagCheckbox:SetSize(24, 24)
+            frame.tagCheckbox:SetAttribute(ns.data.tagAttrName, data.tagId)
+            frame.tagCheckbox:SetScript("OnClick", function(self)
+                ns:CheckedTagMaintenance(self)
+            end)
+        end
+        frame.tagCheckbox.Text:SetText(data.name)
+    end)
+
+    -- 4. Element resetter (cleanup when row scrolls out of view)
+    view:SetElementResetter(function(frame)
+        frame:SetScript("OnEnter", nil)
+        frame:SetScript("OnLeave", nil)
+    end)
+
+    -- 5. Connect everything
+    ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
+
+    -- 6. Auto-hide scrollbar when not needed
+    ScrollUtil.AddManagedScrollBarVisibilityBehavior(scrollBox, scrollBar)
+
+    return scrollBox
+end
+
+function ns:CheckedTagMaintenance(self)
+    -- get the checkbox addon attribute which contains the tag ID
+    local id = self:GetAttribute(ns.data.tagAttrName)
+
+    -- loop over all checkboxes and uncheck them but this one
+    for _, globalName in pairs(ns.data.ui.checkbox.tagMaint) do
+        local checkbox = _G[globalName]
+        if checkbox and checkbox ~= self then
+            checkbox:SetChecked(false)
+        end
+    end
+
+    --@debug@
+    if false then
+        local isChecked = self:GetChecked()
+        local name = self:GetName()
+        ns:Print(("Tag '%s' checkbox clicked. Checked: %s (ID: %s)"):format(name, tostring(isChecked), tostring(id)))
+    end
+    --@end-debug@
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   PopulateTagMaintList
+    Purpose:    Update the list of toys displayed in the left frame based on the selected tag.
+-----------------------------------------------------------------------------]]
+function ns:PopulateTagMaintList()
+    -- create data provider for scrollbox
+    if ns.data.dp.toyMaintList == nil then
+        ns.data.dp.toyMaintList = CreateDataProvider()
+        --@debug@
+        -- ns:Print("Created DataProvider for Toy Maintenance List")
+        --@end-debug@
+    end
+
+    -- reset data provider
+    ns.data.dp.toyMaintList:Flush()
+
+    -- collect tags into a sortable table
+    for tagId, tagData in pairs(ns.db.global.tags.order) do
+        ns.data.dp.toyMaintList:Insert({
+            tagId = tagId,
+            name = tagData.name or ns.L[tagId] or tagId,
+            order = tagData.order
+        })
+    end
+
+    -- insert sorted rows into the data provider
+    ns.data.dp.toyMaintList:Sort(function(a, b) return a.order < b.order end)
+
+    -- pass refreshed data into scroll box
+    ns.data.ui.scroll.tagMaint:SetDataProvider(ns.data.dp.toyMaintList)
+
+    --@debug@
+    -- ns:Print(("Total Toy Frames Created: %d"):format(#ns.data.ui.frame.items))
+    --@end-debug@
 end
 
 --EOF

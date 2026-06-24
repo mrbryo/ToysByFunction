@@ -85,6 +85,7 @@ ns.data = {
 	version = "@project-version@",
 	prefix = "ToysByFunctionUIObject",
 	optionID = "ToysByFunction",
+	tagAttrName = "TBFTagID",
 
 	-- addon ui columns
 	columns = {},
@@ -101,6 +102,7 @@ ns.data = {
 		dropdown = {},
 		frame = {},
 		checkbox = {},
+		height = {},
 	},
 
 	-- track popups

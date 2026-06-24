@@ -31,13 +31,18 @@ L["Yes"] = "Yes"
 L["Player Logging Out..."] = "Player Logging Out..."
 
 -- Main Frame
-L["Filtered List of Toys by Tag:"] = "Filtered List of Toys by Tag:"
-L["Tag:"] = "Tag:"
-L["No Tag Selected"] = "No Tag Selected"
 L["Sort"] = "Sort"
 L["A-Z"] = "A-Z"
 L["Z-A"] = "Z-A"
 L["Show Toy Tooltips"] = "Show Toy Tooltips"
+
+-- left frame to show filtered toys
+L["Filtered List of Toys by Tag:"] = "Filtered List of Toys by Tag:"
+L["Tag:"] = "Tag:"
+L["No Tag Selected"] = "No Tag Selected"
+
+-- tag maintenance frame
+L["Maintain Tags:"] = "Maintain Tags:"
 
 -- Mini Map Button
 L["Left-click open main config window."] = "Left-click open main config window."
