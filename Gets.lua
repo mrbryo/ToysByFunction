@@ -45,39 +45,13 @@ function ns.gets:GetDevMode()
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   GetMinimapButtonVisible
-    Purpose:    Get whether the minimap button should be visible (defaults to true).
------------------------------------------------------------------------------]]
-function ns.gets:GetMinimapButtonVisible()
-    if not ns.db or not ns.db.global then
-        return true -- default to showing the button
-    end
-    
-    if ns.db.global.minimap and ns.db.global.minimap.hide ~= nil then
-        return not ns.db.global.minimap.hide -- LibDBIcon uses 'hide' property, we want 'show'
-    end
-    
-    return true -- default to showing the button
-end
-
---[[---------------------------------------------------------------------------
     Function:   GetFramePosition
     Purpose:    Retrieve the position of a frame from the profile database.
     Parameters: frameName - the name of the frame
 -----------------------------------------------------------------------------]]
 function ns.gets:GetFramePosition(frameName)
-    -- make sure the current player key is set
-    if not ns.data.currentPlayerServer then return false end
-
-    -- ensure profile DB structure exists
-    local isSet = ns.sets:SetupProfileDB()
-    
-    if isSet == true then
-        -- retrieve position data
-        return ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName] or ns.L["Unknown"]
-    else
-        return ns.L["Unknown"]
-    end
+    -- retrieve position data
+    return ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName]
 end
 
 --[[---------------------------------------------------------------------------
@@ -94,18 +68,8 @@ end
     Purpose:    Get the currently selected tag for filtering toys.
 -----------------------------------------------------------------------------]]
 function ns.gets:GetSelectedTag()
-    -- make sure the current player key is set
-    if not ns.data.currentPlayerServer then return false end
-
-    -- ensure profile DB structure exists
-    local isSet = ns.sets:SetupProfileDB()
-
-    if isSet == true then
-        -- retrieve selected tag
-        return ns.db.profile[ns.data.currentPlayerServer].selectedTag or "none"
-    else
-        return "none"
-    end
+    -- retrieve selected tag
+    return ns.db.profile[ns.data.currentPlayerServer].selectedTag or "none"
 end
 
 --[[---------------------------------------------------------------------------
@@ -113,33 +77,21 @@ end
     Purpose:    Get the current toy sorting order for the main config.
 -----------------------------------------------------------------------------]]
 function ns.gets:GetToySortingOrderMainConfig()
-    -- make sure the current player key is set
-    if not ns.data.currentPlayerServer then return false end
-
-    -- ensure profile DB structure exists
-    local isSet = ns.sets:SetupProfileDB()
-
-    if isSet == true then
-        -- retrieve toy sorting order
-        return ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.main
-    else
-        return "az"
-    end
+    -- retrieve toy sorting order
+    return ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.main
 end
 
+--[[---------------------------------------------------------------------------
+    Function:   GetOptionShowToyTooltips
+    Purpose:    Get the option for showing toy tooltips in the main config.
+-----------------------------------------------------------------------------]]
 function ns.gets:GetOptionShowToyTooltips()
-    -- make sure the current player key is set
-    if not ns.data.currentPlayerServer then return false end
+    --@debug@
+    -- ns:Print(("(GetOptionShowToyTooltips) Show Toy Tooltips option is: %s"):format(tostring(ns.db.profile[ns.data.currentPlayerServer].showTooltips.main)))
+    --@end-debug@
 
-    -- ensure profile DB structure exists
-    local isSet = ns.sets:SetupProfileDB()
-
-    if isSet == true then
-        -- retrieve show toy tooltips option
-        return ns.db.profile[ns.data.currentPlayerServer].showTooltips.main
-    else
-        return true -- default to showing tooltips
-    end
+    -- retrieve show toy tooltips option
+    return ns.db.profile[ns.data.currentPlayerServer].showTooltips.main
 end
 
 --[[---------------------------------------------------------------------------

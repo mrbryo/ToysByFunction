@@ -1,0 +1,13 @@
+package-as: ToysByFunction
+enable-nolib-creation: yes
+
+ignore:
+  - .github
+  - .vscode
+  - .luacheckrc
+  - .luarc.json
+  - .editorconfig
+  - .cursorrules
+  - CLAUDE.md
+  - README.md
+  - CHANGELOG.md

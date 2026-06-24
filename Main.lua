@@ -218,7 +218,7 @@ function ns:StoreFramePosition(frame)
     end
 
     -- store position data in the character database
-    local isSuccess = self:SetFramePosition(frameName, point, relativePoint, xOfs, yOfs)
+    local isSuccess = ns.sets:SetFramePosition(frameName, point, relativePoint, xOfs, yOfs)
 
     --@debug@
     -- if self.gets:GetDevMode() == true then
@@ -242,13 +242,13 @@ function ns:RestoreFramePosition(frame, frameWidth, frameHeight)
     
     -- get stored position data
     local storedPosition = ns.gets:GetFramePosition(frameName)
-    if not storedPosition then
+    ns:Print(("Stored Position for %s: %s"):format(frameName, storedPosition and ("point=%s, relativePoint=%s, xOffset=%.1f, yOffset=%.1f"):format(storedPosition.point, storedPosition.relativePoint, storedPosition.xOffset, storedPosition.yOffset) or "nil"))
+    if storedPosition == nil then
         --@debug@
         if ns.gets:GetDevMode() == true then
             ns:Print((ns.L["No stored position data found for frame: %s"]):format(frameName))
         end
         --@end-debug@
-        return false
     end
     
     -- default to center position
@@ -334,12 +334,12 @@ function ns:ShowUI(openDelaySeconds)
     ns.sets:SetKeyPlayerServerSpec()
 
     -- make sure openDelaySeconds is not nil
-    if not openDelaySeconds then
+    if openDelaySeconds == nil then
         openDelaySeconds = 0
     end
 
     -- be sure frame doesn't exist
-    if not ns.data.ui.frame.main then
+    if ns.data.ui.frame.main == nil then
         -- create main frame
         ns:CreateMainFrame()
 
@@ -355,7 +355,7 @@ end
     Function:   CreateMainFrame
     Purpose:    Create the main frame for the addon UI.
 -----------------------------------------------------------------------------]]
-function ns:CreateMainFrame()   
+function ns:CreateMainFrame()
     -- get screen size
     local screenWidth = UIParent:GetWidth()
     local screenHeight = UIParent:GetHeight()
@@ -371,9 +371,13 @@ function ns:CreateMainFrame()
     if frameHeight < ns.data.constants.ui.mainFrame.minHeight then
         frameHeight = ns.data.constants.ui.mainFrame.minHeight
     end
-    
+
+    --@debug@
+    ns:Print(("Creating main frame with size: %.1f x %.1f"):format(frameWidth, frameHeight))
+    --@end-debug@
+
     -- use PortraitFrameTemplate which is more reliable in modern WoW
-    ns.data.ui.frame.main = CreateFrame("Frame", nil, UIParent, "PortraitFrameTemplate")
+    ns.data.ui.frame.main = CreateFrame("Frame", "ToysByFunctionMainFrame", UIParent, "PortraitFrameTemplate")
     ns.data.ui.frame.main:SetSize(frameWidth, frameHeight)
 
     -- set the frame location
@@ -470,60 +474,73 @@ function ns:CreateLeftToyFrame()
     ns.data.ui.dropdown.filterToysByTag:SetPoint("LEFT", dropdownLabel, "RIGHT", padding, 0)
 
     -- add menu button for sorting
-    local sortButton = ns:CreateStandardButton(mainleft, nil, ns.L["Sort"], 40, function()
-        -- local functions for sorting menu button
-        local function SetToySortingOrderMainConfig(orderKey)
-            --@debug@
-            ns:Print(("SetToySortingOrderMainConfig called with orderKey: %s"):format(tostring(orderKey)))
-            --@end-debug@
-            ns.sets:SetToySortingOrderMainConfig(orderKey)
-            ns:PopulateToysByTag()
-        end
-        local function GetToySortingOrderMainConfig()
-            local value = ns.gets:GetToySortingOrderMainConfig()
-            --@debug@
-            ns:Print(("GetToySortingOrderMainConfig returned value: %s"):format(tostring(value)))
-            --@end-debug@
-            return value
-        end
-        
-        -- create menu
-        MenuUtil.CreateRadioContextMenu(owner, GetToySortingOrderMainConfig, SetToySortingOrderMainConfig,
-            {ns.L["A-Z"], "az"},
-            {ns.L["Z-A"], "za"}
-        )
-    end)
-    sortButton:SetPoint("LEFT", ns.data.ui.dropdown.filterToysByTag, "RIGHT", padding, 0)
-
-    -- add menu button for options
-    local optionButton = ns:CreateStandardButton(mainleft, nil, ns.L["Options"], 65, function()
-        -- local functions for options menu button
-        local function SetOptionShowToyTooltips(value)
-            --@debug@
-            ns:Print(("SetOptionShowToyTooltips called with value: %s"):format(tostring(value)))
-            --@end-debug@
-            ns.sets:SetOptionShowToyTooltips(value)
-        end
-        local function GetOptionShowToyTooltips()
-            local value = ns.gets:GetOptionShowToyTooltips()
-            --@debug@
-            ns:Print(("GetOptionShowToyTooltips returned value: %s"):format(tostring(value)))
-            --@end-debug@
-            return value
-        end
-
-        -- create menu
-        MenuUtil.CreateCheckboxContextMenu(owner, GetOptionShowToyTooltips, SetOptionShowToyTooltips,
-            {ns.L["Show Toy Tooltips"], 1}
-        )
-    end)
-    optionButton:SetPoint("LEFT", sortButton, "RIGHT", padding, 0)
+    local optionButton = ns:CreateToyMainOptionsButton(mainleft)
+    optionButton:SetPoint("LEFT", ns.data.ui.dropdown.filterToysByTag, "RIGHT", padding, 0)
 
     -- new scroll tech
     ns.data.ui.scroll.toysLeft = ns:CreateToyScrollList(mainleft)
 
     -- update the dropdown with the current tags
     ns:UpdateFilterBarTags()
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   CreateToyMainOptionsButton
+    Purpose:    Create a button that opens a dropdown menu for toy options.
+                This includes sorting order and tooltip display options.
+-----------------------------------------------------------------------------]]
+function ns:CreateToyMainOptionsButton(parent)
+    -- local functions for sorting
+    local function SetSorting(key)
+        --@debug@
+        -- ns:Print(("SetToySortingOrderMainConfig called with key: %s"):format(tostring(key)))
+        --@end-debug@
+        ns.sets:SetToySortingOrderMainConfig(key)
+        ns:PopulateToysByTag()
+    end
+
+    local function GetSorting(key)
+        local value = ns.gets:GetToySortingOrderMainConfig()
+        --@debug@
+        -- ns:Print(("GetToySortingOrderMainConfig returned value: %s"):format(tostring(value)))
+        --@end-debug@
+        return value == key
+    end
+
+    -- local functions for showing tooltips
+    local function SetTooltips()
+        ns.sets:SetOptionShowToyTooltips()
+    end
+
+    local function IsTooltipEnabled()
+        local value = ns.gets:GetOptionShowToyTooltips()
+        ns:Print(("(IsTooltipEnabled) Show Toy Tooltips option is: %s"):format(tostring(value)))
+        return value
+    end
+
+    local function GeneratorFunction(owner, rootDescription)
+        -- checkbox for enabling/disabling toy tooltips
+        rootDescription:CreateCheckbox(ns.L["Show Toy Tooltips"], IsTooltipEnabled, SetTooltips)
+
+        -- submenu for setting sort order
+        local sortSubMenu = rootDescription:CreateButton("Sort");
+        sortSubMenu:CreateRadio(ns.L["A-Z"], GetSorting, SetSorting, "az")
+        sortSubMenu:CreateRadio(ns.L["Z-A"], GetSorting, SetSorting, "za")
+    end
+
+    -- create dropdown button using the format which shows the button name with a right facing arrow
+    local button = CreateFrame("DropdownButton", nil, parent, "WowStyle1FilterDropdownTemplate")
+    -- button:SetSize(width, 22)
+    button:SetText(ns.L["Options"])
+    button:SetupMenu(GeneratorFunction)
+
+    -- MenuUtil.CreateRadioContextMenu(button, GetToySortingOrderMainConfig, SetToySortingOrderMainConfig,
+    --     {ns.L["A-Z"], "az"},
+    --     {ns.L["Z-A"], "za"}
+    -- )
+
+    -- finally return the button to be positioned and visible in the UI
+    return button
 end
 
 --[[---------------------------------------------------------------------------
@@ -614,7 +631,7 @@ function ns:CreateToyScrollList(parent)
     ScrollUtil.AddManagedScrollBarVisibilityBehavior(scrollBox, scrollBar)
 
     --@debug@
-    ns:Print("Created Scroll Box List for Toys")
+    -- ns:Print("Created Scroll Box List for Toys")
     --@end-debug@
 
     return scrollBox

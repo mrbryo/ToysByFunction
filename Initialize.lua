@@ -274,21 +274,32 @@ end
     Purpose:    Ensure the global DB structure exists and has all necessary values.
 -----------------------------------------------------------------------------]]
 function ns:InstantiateDBGlobal(barID)
-    -- create the global structure
-    ns.sets:SetupGlobalDB()
+    -- instantiate global structure
+    if ns.db.global == nil then
+        ns.db.global = {}
+    end
 
-    -- instantiate toy db
-    if not ns.db.global.toys then
+    -- create toys data structure
+    if ns.db.global.toys == nil then
         ns.db.global.toys = {}
+    end
+    if ns.db.global.toys.byItemId == nil then
+        ns.db.global.toys.byItemId = {}
+    end
+    if ns.db.global.toys.byTag == nil then
+        ns.db.global.toys.byTag = {}
+    end
+    if ns.db.global.toys.order == nil then
+        ns.db.global.toys.order = {}
     end
 
 	-- if tags is empty, create it
-	if not ns.db.global.tags then
+	if ns.db.global.tags == nil then
 		ns.db.global.tags = {}
 	end
 
 	-- if order is empty create it
-	if not ns.db.global.tags.order then
+	if ns.db.global.tags.order == nil then
 		ns.db.global.tags.order = {}
 	end
 end
@@ -298,21 +309,58 @@ end
     Purpose:    Ensure the profile DB structure exists and has all necessary values.
 -----------------------------------------------------------------------------]]
 function ns:InstantiateDBProfile()
-    -- create/fix/update the profile structure
-    self.sets:SetupProfileDB()
+    -- make sure the current player key is set
+    if ns.data.currentPlayerServer == nil then return false end
+
+    -- create profile node if missing
+    if ns.db.profile == nil then ns.db.profile = {} end
+
+    -- add current character if missing
+    if ns.db.profile[ns.data.currentPlayerServer] == nil then
+        ns.db.profile[ns.data.currentPlayerServer] = {}
+    end
+
+    -- initialize UI settings if they don't exist
+    if ns.db.profile[ns.data.currentPlayerServer].ui == nil then
+        ns.db.profile[ns.data.currentPlayerServer].ui = {}
+    end
+    if ns.db.profile[ns.data.currentPlayerServer].ui.positions == nil then
+        ns.db.profile[ns.data.currentPlayerServer].ui.positions = {}
+    end
+
+    -- selected tag default
+    if ns.db.profile[ns.data.currentPlayerServer].selectedTag == nil then
+        ns.db.profile[ns.data.currentPlayerServer].selectedTag = "none"
+    end
+
+    -- toy sorting order defaults; default to A-Z sorting if not set
+    if ns.db.profile[ns.data.currentPlayerServer].toySortingOrder == nil then
+        ns.db.profile[ns.data.currentPlayerServer].toySortingOrder = {}
+    end
+    if ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.main == nil then
+        ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.main = "az"
+    end
+
+    -- show tooltips; main frame is set to true by default
+    if ns.db.profile[ns.data.currentPlayerServer].showTooltips == nil then
+        ns.db.profile[ns.data.currentPlayerServer].showTooltips = {}
+    end
+    if ns.db.profile[ns.data.currentPlayerServer].showTooltips.main == nil then
+        ns.db.profile[ns.data.currentPlayerServer].showTooltips.main = true
+    end
 
     -- create initial value for storing custom tag settings
-    if not ns.db.profile[ns.data.currentPlayerServer].tags then
+    if ns.db.profile[ns.data.currentPlayerServer].tags == nil then
         ns.db.profile[ns.data.currentPlayerServer].tags = {}
     end
 
     -- create inital value for storing custom tags
-    if not ns.db.profile[ns.data.currentPlayerServer].tags.custom then
+    if ns.db.profile[ns.data.currentPlayerServer].tags.custom == nil then
         ns.db.profile[ns.data.currentPlayerServer].tags.custom = {}
     end
 
     -- create initial value for storing custom tags and/or order
-    if not ns.db.profile[ns.data.currentPlayerServer].tags.order then
+    if ns.db.profile[ns.data.currentPlayerServer].tags.order == nil then
         ns.db.profile[ns.data.currentPlayerServer].tags.order = {}
     end
 end

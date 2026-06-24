@@ -14,7 +14,7 @@ ns.sets = {}
 -----------------------------------------------------------------------------]]
 function ns.sets:SetKeyPlayerServerSpec()
     -- verify variable is setup
-    if not ns.data.currentPlayerServerSpec then
+    if ns.data.currentPlayerServerSpec == nil then
         ns.data.currentPlayerServerSpec = ""
     end
 
@@ -50,10 +50,10 @@ end
 -----------------------------------------------------------------------------]]
 function ns.sets:SetKeyPlayerServer()
     -- verify variable's are setup
-    if not ns.data.currentPlayerServer then
+    if ns.data.currentPlayerServer == nil then
         ns.data.currentPlayerServer = ""
     end
-    if not ns.data.currentPlayerServerWithSpace then
+    if ns.data.currentPlayerServerWithSpace == nil then
         ns.data.currentPlayerServerWithSpace = ""
     end
 
@@ -66,117 +66,11 @@ function ns.sets:SetKeyPlayerServer()
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   SetupGlobalDB
-    Purpose:    Setup the global DB with default values if they don't already exist.
------------------------------------------------------------------------------]]
-function ns.sets:SetupGlobalDB()
-    -- create whole DB if missing
-    if not ToysByFunctionDB then ToysByFunctionDB = {} end
-
-    -- actionBars holds just a sorted array of action bar names; needed under global and profile
-    if not ToysByFunctionDB.global then
-        ToysByFunctionDB.global = {}
-    end
-
-    -- create toys data structure
-    if not ns.db.global.toys then
-        ns.db.global.toys = {}
-    end
-    if not ns.db.global.toys.byItemId then
-        ns.db.global.toys.byItemId = {}
-    end
-    if not ns.db.global.toys.byTag then
-        ns.db.global.toys.byTag = {}
-    end
-    if not ns.db.global.toys.order then
-        ns.db.global.toys.order = {}
-    end
-end
-
---[[---------------------------------------------------------------------------
-    Function:   SetMinimapButtonVisible
-    Purpose:    Set whether the minimap button should be visible.
------------------------------------------------------------------------------]]
-function ns.sets:SetMinimapButtonVisible(visible)
-    if not ToysByFunctionDB or not ToysByFunctionDB.global then
-        return
-    end
-    
-    -- Initialize minimap settings if they don't exist
-    if not ToysByFunctionDB.global.minimap then
-        ToysByFunctionDB.global.minimap = {}
-    end
-    
-    -- LibDBIcon uses 'hide' property, so we invert our 'visible' boolean
-    ToysByFunctionDB.global.minimap.hide = not visible
-end
-
---[[---------------------------------------------------------------------------
-    Function:   SetupProfileDB
-    Purpose:    Ensure the profile specific database structure is setup.
------------------------------------------------------------------------------]]
-function ns.sets:SetupProfileDB()
-    -- make sure the current player key is set
-    if not ns.data.currentPlayerServer then return false end
-
-    -- create whole DB if missing
-    if not ToysByFunctionDB then ToysByFunctionDB = {} end
-
-    -- create profile node if missing
-    if not ToysByFunctionDB.profile then ToysByFunctionDB.profile = {} end
-
-    -- add current character if missing
-    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer] then
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer] = {}
-    end
-
-    -- initialize UI settings if they don't exist
-    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui then
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui = {}
-    end
-    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions then
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions = {}
-    end
-
-    -- selected tag default
-    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].selectedTag then
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].selectedTag = "none"
-    end
-
-    -- toy sorting order defaults; default to A-Z sorting if not set
-    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].toySortingOrder then
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].toySortingOrder = {}
-    end
-    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].toySortingOrder.main then
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].toySortingOrder.main = "az"
-    end
-
-    -- show tooltips; main frame is set to true by default
-    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].showTooltips then
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].showTooltips = {}
-    end
-    if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].showTooltips.main then
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].showTooltips.main = true
-    end
-
-    -- return true if we get to here in the code
-    return true
-end
-
---[[---------------------------------------------------------------------------
     Function:   SetSelectedTag
     Purpose:    Set the currently selected tag for filtering toys.
 -----------------------------------------------------------------------------]]
 function ns.sets:SetSelectedTag(tagKey)
-    -- make sure the current player key is set
-    if not ns.data.currentPlayerServer then return end
-
-    -- ensure profile DB structure exists
-    local isSet = self:SetupProfileDB()
-    
-    if isSet == true then
-        ns.db.profile[ns.data.currentPlayerServer].selectedTag = tagKey
-    end
+    ns.db.profile[ns.data.currentPlayerServer].selectedTag = tagKey
 end
 
 --[[---------------------------------------------------------------------------
@@ -184,30 +78,19 @@ end
     Purpose:    Set the current toy sorting order for the main config.
 -----------------------------------------------------------------------------]]
 function ns.sets:SetToySortingOrderMainConfig(orderKey)
-    -- make sure the current player key is set
-    if not ns.data.currentPlayerServer then return end
-
-    -- ensure profile db structure exists
-    local isSet = self:SetupProfileDB()
-
-    if isSet == true then
-        if not ns.db.profile[ns.data.currentPlayerServer].toySortingOrder then
-            ns.db.profile[ns.data.currentPlayerServer].toySortingOrder = {}
-        end
-        ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.main = orderKey
-    end
+    ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.main = orderKey
 end
 
-function ns.sets:SetOptionShowToyTooltips(value)
-    -- make sure the current player key is set
-    if not ns.data.currentPlayerServer then return end
-
-    -- ensure profile db structure exists
-    local isSet = self:SetupProfileDB()
-
-    if isSet == true then
-        ns.db.profile[ns.data.currentPlayerServer].showTooltips.main = value
-    end
+--[[---------------------------------------------------------------------------
+    Function:   SetOptionShowToyTooltips
+    Purpose:    Toggle the option for showing toy tooltips in the main config.
+-----------------------------------------------------------------------------]]
+function ns.sets:SetOptionShowToyTooltips()
+    local previousValue = ns.db.profile[ns.data.currentPlayerServer].showTooltips.main
+    ns.db.profile[ns.data.currentPlayerServer].showTooltips.main = not previousValue
+    --@debug@
+    -- ns:Print(("(SetOptionShowToyTooltips) Show Toy Tooltips option set to: %s; previous value: %s"):format(tostring(ns.db.profile[ns.data.currentPlayerServer].showTooltips.main), tostring(previousValue)))
+    --@end-debug@
 end
 
 --[[---------------------------------------------------------------------------
@@ -220,25 +103,17 @@ end
                 yOfs - the y offset from the relative point
 -----------------------------------------------------------------------------]]
 function ns.sets:SetFramePosition(frameName, point, relativePoint, xOfs, yOfs)
-    -- make sure the current player key is set
-    if not ns.data.currentPlayerServer then return false end
-
-    -- ensure profile DB structure exists
-    local isSet = self:SetupProfileDB()
-    
-    if isSet == true then
-        -- create index for this frame
-        if not ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName] then
-            ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName] = {}
-        end
-        
-        -- Store position data
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName].point = point
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName].relativePoint = relativePoint
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName].xOffset = xOfs
-        ToysByFunctionDB.profile[ns.data.currentPlayerServer].ui.positions[frameName].yOffset = yOfs
-
-        -- return true since storage was successful
-        return true
+    -- create empty table for frame if it doesn't exist
+    if ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName] == nil then
+        ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName] = {}
     end
+    
+    -- Store position data
+    ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName].point = point
+    ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName].relativePoint = relativePoint
+    ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName].xOffset = xOfs
+    ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName].yOffset = yOfs
+
+    -- return true since storage was successful
+    return true
 end
