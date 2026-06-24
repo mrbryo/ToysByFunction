@@ -652,7 +652,7 @@ function ns:PopulateToysByTag()
     local selectedTag = ns.gets:GetSelectedTag() or "none"
 
     -- create data provided for scrollbox
-    if not ns.data.dp.leftToyList then
+    if ns.data.dp.leftToyList == nil then
         ns.data.dp.leftToyList = CreateDataProvider()
         --@debug@
         -- ns:Print("Created DataProvider for Left Toy List")
@@ -661,51 +661,39 @@ function ns:PopulateToysByTag()
 
     -- loop over toys by tag if a selected tag is returned
     if selectedTag ~= "none" then
-
-        -- track the index of frames
-        local frameIndex = 1
-        local prevIndex = 0
-        local previousFrame = ns.data.ui.frame.filteredToys
-
-        -- tracking frames
-        if not ns.data.ui.frame.items then
-            ns.data.ui.frame.items = {}
-            ns.data.ui.frame.itemIcons = {}
-            ns.data.itemFrameCount = 0
-        end
-
         -- reset data provider
         ns.data.dp.leftToyList:Flush()
 
-        -- loop over the toys in the tag listing and create frames for each toy
+        -- collect valid toys into a sortable table
+        local toyRows = {}
         for _, itemId in pairs(ns.db.global.toys.byTag[selectedTag]) do
-            -- convert itemId to a string
             local strItemId = tostring(itemId)
-
-            -- verify item exists
-            local itemInfo = {}
             if ns.db.global.toys.byItemId[strItemId] then
-                -- -- get the toy item data
-                itemInfo = ns.db.global.toys.byItemId[strItemId]
-
-                --@debug@
-                -- ns:Print(("Processing toy with itemId %s for tag %s"):format(itemId, selectedTag))
-                --@end-debug@
-
-                -- item texture
-                local itemIconFileId = itemInfo.icon
-
-                -- add record to data provider
-                ns.data.dp.leftToyList:Insert({
+                local itemInfo = ns.db.global.toys.byItemId[strItemId]
+                toyRows[#toyRows + 1] = {
                     itemId = itemId,
-                    name = itemInfo.name,
-                    icon = itemIconFileId,
-                })
+                    name   = itemInfo.name or "",
+                    icon   = itemInfo.icon,
+                }
             else
+                -- TODO: Add an error log for missing data or issues.
                 --@debug@
                 -- ns:Print(("No item data found for itemId %s, skipping."):format(itemId))
                 --@end-debug@
             end
+        end
+
+        -- sort alphabetically based on the configured sort order
+        local sortOrder = ns.gets:GetToySortingOrderMainConfig() or "az"
+        if sortOrder == "za" then
+            table.sort(toyRows, function(a, b) return a.name > b.name end)
+        else
+            table.sort(toyRows, function(a, b) return a.name < b.name end)
+        end
+
+        -- insert sorted rows into the data provider
+        for _, row in ipairs(toyRows) do
+            ns.data.dp.leftToyList:Insert(row)
         end
 
         -- pass refreshed data into scroll box
