@@ -86,6 +86,7 @@ ns.data = {
 	prefix = "ToysByFunctionUIObject",
 	optionID = "ToysByFunction",
 	tagAttrName = "TBFTagID",
+	preventTagDelete = true,
 
 	-- addon ui columns
 	columns = {},

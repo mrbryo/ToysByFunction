@@ -347,7 +347,7 @@ function ns:ShowUI(openDelaySeconds)
         ns:CreateLeftToyFrame()
 
         -- load tag maintenance frame
-        ns:CreateMaintainTags()
+        ns:CreateMaintainTagsFrame()
     end
 
     -- display the frame
@@ -748,18 +748,19 @@ function ns:UpdateFilterBarTags()
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   CreateMaintainTags
+    Function:   CreateMaintainTagsFrame
     Purpose:    Create a frame for maintaining tags.
 -----------------------------------------------------------------------------]]
-function ns:CreateMaintainTags()
+function ns:CreateMaintainTagsFrame()
     -- standard variables
     local padding = ns.data.constants.ui.generic.padding
 
     -- create frame to hold all content for maintaining tags
     ns.data.ui.frame.tagMaint = CreateFrame("Frame", nil, ns.data.ui.frame.main) --, "InsetFrameTemplate")
     ns.data.ui.frame.tagMaint:SetPoint("TOPLEFT", ns.data.ui.frame.leftFrame, "TOPRIGHT", padding, 0)
-    ns.data.ui.frame.tagMaint:SetPoint("BOTTOMLEFT", ns.data.ui.frame.leftFrame, "BOTTOMRIGHT", padding, 0)
-    ns.data.ui.frame.tagMaint:SetWidth(400)
+    ns.data.ui.frame.tagMaint:SetPoint("BOTTOMRIGHT", ns.data.ui.frame.main, "BOTTOMRIGHT", -padding, padding)
+    -- ns.data.ui.frame.tagMaint:SetPoint("BOTTOMLEFT", ns.data.ui.frame.leftFrame, "BOTTOMRIGHT", padding, 0)
+    -- ns.data.ui.frame.tagMaint:SetWidth(400)
 
     -- add title to frame
     local titleLabel = ns.data.ui.frame.tagMaint:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -767,52 +768,63 @@ function ns:CreateMaintainTags()
     titleLabel:SetPoint("TOPLEFT", ns.data.ui.frame.tagMaint, "TOPLEFT", 0, 0)
     titleLabel:SetText(ns.L["Maintain Tags:"])
 
-    -- create inset frame
+    -- create inset frame to hold the tag list
     local insetFrame = CreateFrame("Frame", nil, ns.data.ui.frame.leftFrame, "InsetFrameTemplate")
     insetFrame:SetPoint("TOPLEFT", titleLabel, "BOTTOMLEFT", 0, 0)
     insetFrame:SetPoint("BOTTOMRIGHT", ns.data.ui.frame.tagMaint, "BOTTOMRIGHT", 0, 0)
 
     -- create scroll box for tag maintenance
-    ns.data.ui.scroll.tagMaint = ns:CreateToyMaintScrollList(insetFrame)
+    -- variable mainly for the PopulateTagMaintList function to access the scroll box
+    ns.data.ui.scroll.tagMaint = ns:CreateTayMaintScrollList(insetFrame)
 
-    -- 7. Populate the scroll box with tag data
+    -- populate the scroll box with tag data
     ns:PopulateTagMaintList()
+
+    -- load the button frame for tag maintenance
+    ns:CreateTagMaintButtonFrame(insetFrame)
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   CreateToyMaintScrollList
+    Function:   CreateTayMaintScrollList
     Purpose:    Create a scrollable list frame for maintaining tags.
                 This is Blizzards new version for scroll frames.
     Arguments:  parent - the parent frame to attach the scroll list to
 -----------------------------------------------------------------------------]]
-function ns:CreateToyMaintScrollList(parent)
+function ns:CreateTayMaintScrollList(parent)
     -- standard variables
     local padding = ns.data.constants.ui.generic.padding
 
+    -- frame to contain label and scroll box
+    ns.data.ui.frame.tagMaintTagListTopFrame = CreateFrame("Frame", nil, parent)
+    ns.data.ui.frame.tagMaintTagListTopFrame:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
+    ns.data.ui.frame.tagMaintTagListTopFrame:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0, 0)
+    ns.data.ui.frame.tagMaintTagListTopFrame:SetWidth(200)
+
     -- frame label
-    local scrollBoxLabel = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    local scrollBoxLabel = ns.data.ui.frame.tagMaintTagListTopFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     scrollBoxLabel:SetJustifyH("LEFT")
-    scrollBoxLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", padding, -padding)
+    scrollBoxLabel:SetPoint("TOPLEFT", ns.data.ui.frame.tagMaintTagListTopFrame, "TOPLEFT", padding, -padding)
     scrollBoxLabel:SetText(ns.L["Pick a tag or click 'New Tag':"])
 
     -- create parent frame for the scroll box
-    local scrollBoxParent = CreateFrame("Frame", nil, parent, "InsetFrameTemplate")
-    scrollBoxParent:SetPoint("TOPLEFT", scrollBoxLabel, "BOTTOMLEFT", 0, -5)
-    scrollBoxParent:SetPoint("BOTTOM", parent, "BOTTOM", 0, padding)
-    scrollBoxParent:SetWidth(parent:GetWidth() / 2)
+    ns.data.ui.frame.tagMaintTagListScrollBoxParent = CreateFrame("Frame", nil, ns.data.ui.frame.tagMaintTagListTopFrame, "InsetFrameTemplate")
+    ns.data.ui.frame.tagMaintTagListScrollBoxParent:SetPoint("TOPLEFT", scrollBoxLabel, "BOTTOMLEFT", 0, -5)
+    ns.data.ui.frame.tagMaintTagListScrollBoxParent:SetPoint("BOTTOMRIGHT", ns.data.ui.frame.tagMaintTagListTopFrame, "BOTTOMRIGHT", 0, padding)
+    -- ns.data.ui.frame.tagMaintTagListScrollBoxParent:SetPoint("BOTTOM", parent, "BOTTOM", 0, padding)
+    -- ns.data.ui.frame.tagMaintTagListScrollBoxParent:SetWidth(parent:GetWidth() / 2)
 
     -- 1. Create components
-    local scrollBox = CreateFrame("Frame", nil, scrollBoxParent, "WowScrollBoxList")
-    scrollBox:SetPoint("TOPLEFT", scrollBoxParent, "TOPLEFT", 5, -5)
-    scrollBox:SetPoint("BOTTOMRIGHT", scrollBoxParent, "BOTTOMRIGHT", -20, 5)
+    local scrollBox = CreateFrame("Frame", nil, ns.data.ui.frame.tagMaintTagListScrollBoxParent, "WowScrollBoxList")
+    scrollBox:SetPoint("TOPLEFT", ns.data.ui.frame.tagMaintTagListScrollBoxParent, "TOPLEFT", 5, -5)
+    scrollBox:SetPoint("BOTTOMRIGHT", ns.data.ui.frame.tagMaintTagListScrollBoxParent, "BOTTOMRIGHT", -20, 5)
 
-    local scrollBar = CreateFrame("EventFrame", nil, scrollBoxParent, "MinimalScrollBar")
+    local scrollBar = CreateFrame("EventFrame", nil, ns.data.ui.frame.tagMaintTagListScrollBoxParent, "MinimalScrollBar")
     scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
     scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
 
     -- 2. Configure view with fixed row height; for variable-height elements
     local view = CreateScrollBoxListLinearView()
-    ns.data.ui.height.toyMaintCell = 30
+    ns.data.ui.height.toyMaintCell = 25
     view:SetElementExtentCalculator(function(dataIndex, data)
         --@debug@
         -- ns:Print(("Calculating height for dataIndex %d with name %s"):format(dataIndex, data.name or "Unknown"))
@@ -870,22 +882,26 @@ function ns:CreateToyMaintScrollList(parent)
     return scrollBox
 end
 
-function ns:CheckedTagMaintenance(self)
+--[[---------------------------------------------------------------------------
+    Function:   CheckedTagMaintenance
+    Purpose:    Handle the logic when a tag maintenance checkbox is clicked.
+-----------------------------------------------------------------------------]]
+function ns:CheckedTagMaintenance(checkedBox)
     -- get the checkbox addon attribute which contains the tag ID
-    local id = self:GetAttribute(ns.data.tagAttrName)
+    local id = checkedBox:GetAttribute(ns.data.tagAttrName)
 
     -- loop over all checkboxes and uncheck them but this one
     for _, globalName in pairs(ns.data.ui.checkbox.tagMaint) do
         local checkbox = _G[globalName]
-        if checkbox and checkbox ~= self then
+        if checkbox and checkbox ~= checkedBox then
             checkbox:SetChecked(false)
         end
     end
 
     --@debug@
     if false then
-        local isChecked = self:GetChecked()
-        local name = self:GetName()
+        local isChecked = checkedBox:GetChecked()
+        local name = checkedBox:GetName()
         ns:Print(("Tag '%s' checkbox clicked. Checked: %s (ID: %s)"):format(name, tostring(isChecked), tostring(id)))
     end
     --@end-debug@
@@ -925,6 +941,108 @@ function ns:PopulateTagMaintList()
     --@debug@
     -- ns:Print(("Total Toy Frames Created: %d"):format(#ns.data.ui.frame.items))
     --@end-debug@
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   CreateTagMaintButtonFrame
+    Purpose:    Create a frame with a checkbox to protect on delete and buttons for tag maintenance actions (New, Edit, Delete).
+-----------------------------------------------------------------------------]]
+function ns:CreateTagMaintButtonFrame(parent)
+    -- standard variables
+    local padding = ns.data.constants.ui.generic.padding
+
+    -- top level frame to hold all visible items for this section
+    local optionFrame = CreateFrame("Frame", nil, parent)
+    optionFrame:SetPoint("TOPLEFT", ns.data.ui.frame.tagMaintTagListTopFrame, "TOPRIGHT", 0, 0)
+    optionFrame:SetPoint("RIGHT", parent, "RIGHT", 0, 0)
+
+    -- label for the options frame
+    local optionLabel = optionFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    optionLabel:SetJustifyH("LEFT")
+    optionLabel:SetPoint("TOPLEFT", optionFrame, "TOPLEFT", padding, -padding)
+    optionLabel:SetText(ns.L["Tag Edits:"])
+
+    -- frame to hold buttons
+    local insetFrame = CreateFrame("Frame", nil, optionFrame, "InsetFrameTemplate")
+    insetFrame:SetPoint("TOPLEFT", optionLabel, "BOTTOMLEFT", 0, -5)
+    insetFrame:SetPoint("BOTTOMRIGHT", optionFrame, "BOTTOMRIGHT", -padding, padding)
+
+    -- create checkbox to prevent tag deletion if toys are still associated with itemIDs
+    local function PreventTagDelete_OnClick()
+        ns.sets:SetOptionPreventTagDelete()
+    end
+    local function GetPreventTagDelete()
+        return ns.gets:GetOptionPreventTagDelete()
+    end
+    local checkboxLabel = ns.L["Prevent Tag Deletion if Toys Assigned"]
+    local checkboxTooltip = ns.L["If checked, tags assigned to toys will NOT be deleted. Otherwise, tags are deleted but associated toys moved to the uncategorized tag."]
+    local checkboxPreventDelete = ns:CreateCheckboxTextWrap(insetFrame, checkboxLabel, GetPreventTagDelete, nil, checkboxTooltip, PreventTagDelete_OnClick)
+    checkboxPreventDelete.frame:SetPoint("TOPLEFT", insetFrame, "TOPLEFT", padding, -padding)
+    checkboxPreventDelete.frame:SetPoint("RIGHT", insetFrame, "RIGHT", -padding, 0)
+    checkboxPreventDelete.frame:SetHeight(checkboxPreventDelete.label:GetStringHeight() + padding)
+
+    -- create buttons for managing tags (New, Edit, Delete)
+    local buttonPadding = -5
+    local btnNewTagAbove = ns:CreateStandardButton(insetFrame, nil, ns.L["New Tag Above"], 40, function() ns:OnClick_NewTag(true) end)
+    btnNewTagAbove:SetPoint("TOPLEFT", checkboxPreventDelete.frame, "BOTTOMLEFT", 0, buttonPadding)
+    local btnNewTagBelow = ns:CreateStandardButton(insetFrame, nil, ns.L["New Tag Below"], 40, function() ns:OnClick_NewTag(false) end)
+    btnNewTagBelow:SetPoint("TOPLEFT", btnNewTagAbove, "BOTTOMLEFT", 0, buttonPadding)
+    local btnEditTag = ns:CreateStandardButton(insetFrame, nil, ns.L["Rename Tag"], 40, function() ns:OnClick_EditTag() end)
+    btnEditTag:SetPoint("TOPLEFT", btnNewTagBelow, "BOTTOMLEFT", 0, buttonPadding)
+    local btnDeleteTag = ns:CreateStandardButton(insetFrame, nil, ns.L["Delete Tag"], 40, function() ns:OnClick_DeleteTag() end)
+    btnDeleteTag:SetPoint("TOPLEFT", btnEditTag, "BOTTOMLEFT", 0, buttonPadding)
+
+    -- fix button widths
+    ns:ButtonCheckWidth({btnNewTagAbove, btnNewTagBelow, btnEditTag, btnDeleteTag})
+
+    -- calculate height
+    local frameHeight = checkboxPreventDelete.frame:GetHeight() + btnNewTagAbove:GetHeight() + btnNewTagBelow:GetHeight() + btnEditTag:GetHeight() + btnDeleteTag:GetHeight() + (buttonPadding * 4) + (padding * 2)
+    insetFrame:SetHeight(frameHeight)
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   ButtonCheckWidth
+    Purpose:    Ensure all buttons in a given list have the same width based on the widest button's text.
+    Arguments:  buttons - a table of button objects to check and adjust
+-----------------------------------------------------------------------------]]
+function ns:ButtonCheckWidth(buttons)
+    -- track width
+    local maxWidth = 0
+
+    -- loop over all the buttons passed in
+    for _, button in pairs(buttons) do
+        -- calculate the width based on the text width plus padding
+        local buttonWidth = button:GetTextWidth() + 20
+        --@debug@
+        -- ns:Print(("Button '%s' width calculated as %.1f"):format(button:GetText(), buttonWidth))
+        --@end-debug@
+
+        -- find the max width among all buttons
+        if buttonWidth > maxWidth then
+            maxWidth = buttonWidth
+        end
+    end
+
+    -- loop again to update all button widths
+    for _, button in pairs(buttons) do
+        button:SetWidth(maxWidth)
+    end
+end
+
+function ns:OnClick_NewTag(above)
+    if above == true then
+
+    else
+
+    end
+end
+
+function ns:OnClick_EditTag()
+
+end
+
+function ns:OnClick_DeleteTag()
+
 end
 
 --EOF

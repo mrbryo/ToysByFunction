@@ -93,10 +93,11 @@ end
     Arguments:  parent       - The parent frame to attach this frame to
                 text         - The label text for the checkbox
                 initialValue - The initial checked state (true/false)
-                onChanged    - Callback function when the checkbox state changes
+                tooltipText  - The tooltip text for the checkbox (optional); nil will skip
+                onClick      - Callback function when the checkbox state changes
     Returns:    The created CheckButton frame.
 ----------------------------------------------------------------------------]]
-function ns:CreateCheckbox(parent, text, initialValue, frameName, OnClick)
+function ns:CreateCheckbox(parent, text, initialValue, frameName, tooltipText, OnClick)
     -- create checkbox
     local checkbox = CreateFrame("CheckButton", frameName, parent, "ChatConfigCheckButtonTemplate")
 
@@ -107,15 +108,102 @@ function ns:CreateCheckbox(parent, text, initialValue, frameName, OnClick)
     checkbox:SetChecked(initialValue)
 
     -- set the OnClick event function to the onChanged parameter function
-    checkbox:SetScript("OnClick", function(self, button, down)
-        local checked = self:GetChecked()
+    checkbox:SetScript("OnClick", function(cb, button, down)
+        local checked = cb:GetChecked()
         if OnClick then
-            OnClick(self, button, checked)
+            OnClick(cb, button, checked)
         end
     end)
+
+    -- add tooltip
+    if tooltipText ~= nil then
+        checkbox:SetScript("OnEnter", function(cb)
+            GameTooltip:SetOwner(cb, "ANCHOR_TOP")
+            GameTooltip:AddLine(tooltipText)
+            GameTooltip:Show()
+        end)
+
+        checkbox:SetScript("OnLeave", function(cb)
+            GameTooltip:Hide()
+        end)
+    end
     
     -- finally return the checkbox object
     return checkbox
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   CreateCheckboxTextWrap
+    Purpose:    Create a checkbox with a label using a font string to wrap text.
+    Arguments:  parent       - The parent frame to attach this frame to.
+                text         - The label text for the checkbox.
+                initialValue - The initial checked state (true/false).
+                frameName    - The name of the frame (optional). The top level frame is frameName + "Frame" and the frameName is assigned to the checkbox itself.
+                tooltipText  - The tooltip text for the checkbox (optional); nil will skip.
+                OnClick      - Callback function when the checkbox state changes.
+    Returns:    A table containing the created frame, checkbox, and label.
+-----------------------------------------------------------------------------]]
+function ns:CreateCheckboxTextWrap(parent, text, initialValue, frameName, tooltipText, OnClick)
+    -- verify input
+    if frameName ~= nil and type(frameName) == "string" then
+        frameName = frameName .. "Frame"
+    end
+
+    -- create frame to hold the checkbox and label
+    local frame = CreateFrame("Frame", frameName, parent) --, "InsetFrameTemplate")
+
+    -- create checkbox
+    local checkbox = CreateFrame("CheckButton", frameName, frame, "ChatConfigCheckButtonTemplate")
+    checkbox:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+
+    -- detach the text from the checkbox template and set it to empty string
+    checkbox.Text:SetText("")
+
+    -- create label so we can wrap the text if we want
+    local label = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    label:SetPoint("TOPLEFT", checkbox, "TOPRIGHT", 5, -5)
+    label:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
+    label:SetJustifyH("LEFT")
+    label:SetJustifyV("TOP")
+    label:SetText(text)
+
+    -- set if its checked or not
+    checkbox:SetChecked(initialValue)
+
+    -- set the OnClick event function to the onChanged parameter function
+    checkbox:SetScript("OnClick", function(cb, button, down)
+        local checked = cb:GetChecked()
+        if OnClick then
+            OnClick(cb, button, checked)
+        end
+    end)
+
+    -- make the label clickable to toggle the checkbox
+    label:EnableMouse(true)
+    label:SetScript("OnMouseDown", function()
+        checkbox:SetChecked(not checkbox:GetChecked())
+        checkbox:GetScript("OnClick")(checkbox)
+    end)
+
+    -- add tooltip
+    if tooltipText ~= nil then
+        frame:SetScript("OnEnter", function(cb)
+            GameTooltip:SetOwner(cb, "ANCHOR_TOP")
+            GameTooltip:AddLine(tooltipText)
+            GameTooltip:Show()
+        end)
+
+        frame:SetScript("OnLeave", function(cb)
+            GameTooltip:Hide()
+        end)
+    end
+
+    -- finally return the checkbox object
+    return {
+        frame = frame,
+        checkbox = checkbox,
+        label = label
+    }
 end
 
 --[[---------------------------------------------------------------------------

@@ -95,6 +95,19 @@ function ns.gets:GetOptionShowToyTooltips()
 end
 
 --[[---------------------------------------------------------------------------
+    Function:   GetOptionPreventTagDelete
+    Purpose:    Get the option for preventing tag deletion if toys are assigned.
+-----------------------------------------------------------------------------]]
+function ns.gets:GetOptionPreventTagDelete()
+    --@debug@
+    -- ns:Print(("(GetOptionPreventTagDelete) Prevent Tag Deletion option is: %s"):format(tostring(ns.db.profile[ns.data.currentPlayerServer].preventTagDelete)))
+    --@end-debug@
+
+    -- retrieve prevent tag deletion option
+    return ns.db.profile[ns.data.currentPlayerServer].preventTagDelete
+end
+
+--[[---------------------------------------------------------------------------
     Function:   HasCustomTags
     Purpose:    Check if the user has any custom tags.
 -----------------------------------------------------------------------------]]

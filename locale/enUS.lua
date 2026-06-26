@@ -43,6 +43,13 @@ L["No Tag Selected"] = "No Tag Selected"
 
 -- tag maintenance frame
 L["Maintain Tags:"] = "Maintain Tags:"
+L["Prevent Tag Deletion if Toys Assigned"] = "Prevent Tag Deletion if Toys Assigned"
+L["If checked, tags assigned to toys will NOT be deleted. Otherwise, tags are deleted but associated toys moved to the uncategorized tag."] = "If checked, tags assigned to toys will NOT be deleted. Otherwise, tags are deleted but associated toys moved to the uncategorized tag."
+L["New Tag Above"] = "New Tag Above"
+L["New Tag Below"] = "New Tag Below"
+L["Rename Tag"] = "Rename Tag"
+L["Delete Tag"] = "Delete Tag"
+L["Tag Edits:"] = "Tag Edits:"
 
 -- Mini Map Button
 L["Left-click open main config window."] = "Left-click open main config window."

@@ -94,6 +94,18 @@ function ns.sets:SetOptionShowToyTooltips()
 end
 
 --[[---------------------------------------------------------------------------
+    Function:   SetOptionPreventTagDelete
+    Purpose:    Toggle the option for preventing tag deletion if toys are assigned.
+-----------------------------------------------------------------------------]]
+function ns.sets:SetOptionPreventTagDelete()
+    local previousValue = ns.db.profile[ns.data.currentPlayerServer].preventTagDelete
+    ns.db.profile[ns.data.currentPlayerServer].preventTagDelete = not previousValue
+    --@debug@
+    -- ns:Print(("(SetOptionPreventTagDelete) Prevent Tag Deletion option set to: %s; previous value: %s"):format(tostring(ns.db.profile[ns.data.currentPlayerServer].preventTagDelete), tostring(previousValue)))
+    --@end-debug@
+end
+
+--[[---------------------------------------------------------------------------
     Function:   SetFramePosition
     Purpose:    Store the position of a frame in the profile database.
     Parameters: frameName - the name of the frame
@@ -107,7 +119,7 @@ function ns.sets:SetFramePosition(frameName, point, relativePoint, xOfs, yOfs)
     if ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName] == nil then
         ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName] = {}
     end
-    
+
     -- Store position data
     ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName].point = point
     ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName].relativePoint = relativePoint
