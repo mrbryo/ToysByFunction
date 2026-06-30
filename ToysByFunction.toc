@@ -5,7 +5,7 @@
 ## Version: @project-version@
 ## SavedVariables: ToysByFunctionDB
 ## OptionalDeps:
-## IconTexture: Interface\Icons\inv_misc_coinbag_special
+## IconTexture: Interface\Icons\inv_fishingpole_03
 ## X-Curse-Project-ID: 000
 ## X-Curse-Project-Name: Toys By Function
 ## X-MrBryo-Repository: https://github.com/mrbryo/ToysByFunction
@@ -38,6 +38,13 @@ locale\zhTW.lua
 ## Libraries
 libs\StandardUI.lua
 libs\Toys.lua
+
+## Tabs
+tabs\Tabs.lua
+tabs\About.lua
+tabs\Introduction.lua
+tabs\TagMaint.lua
+tabs\ToyMaint.lua
 
 ## 3rd Party Libraries
 #@no-lib-strip@

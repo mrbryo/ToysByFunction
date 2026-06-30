@@ -86,6 +86,7 @@ ns.data = {
 	prefix = "ToysByFunctionUIObject",
 	optionID = "ToysByFunction",
 	tagAttrName = "TBFTagID",
+	tagAttrOrder = "TBFTagOrder",
 	preventTagDelete = true,
 
 	-- addon ui columns
@@ -104,6 +105,7 @@ ns.data = {
 		frame = {},
 		checkbox = {},
 		height = {},
+		tabs = {},
 	},
 
 	-- track popups
@@ -142,6 +144,20 @@ ns.data = {
 
 	-- track timers
 	timers = {},
+
+	-- tab processing
+	tabs = {
+		current = "about",
+		order = {
+			"about",
+			"introduction",
+			"tagmaint",
+			"toymaint",
+			-- "developer"
+		},
+		buttons = {},
+		buttonIndex = {},
+	}
 }
 
 --[[--------------------------------------------------------------------------
