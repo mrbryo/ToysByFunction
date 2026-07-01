@@ -64,10 +64,10 @@ function ns.gets:GetObjectName(postfix)
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   GetSelectedTag
+    Function:   GetFilterTag
     Purpose:    Get the currently selected tag for filtering toys.
 -----------------------------------------------------------------------------]]
-function ns.gets:GetSelectedTag()
+function ns.gets:GetFilterTag()
     -- retrieve selected tag
     return ns.db.profile[ns.data.currentPlayerServer].selectedTag or "none"
 end
@@ -105,6 +105,10 @@ function ns.gets:GetOptionPreventTagDelete()
 
     -- retrieve prevent tag deletion option
     return ns.db.profile[ns.data.currentPlayerServer].preventTagDelete
+end
+
+function ns.gets:GetTagCheckedForMaint()
+    return ns.db.profile[ns.data.currentPlayerServer].selectedTagForEdit or "none"
 end
 
 --[[---------------------------------------------------------------------------

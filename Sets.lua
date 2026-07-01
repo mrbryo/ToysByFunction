@@ -66,10 +66,10 @@ function ns.sets:SetKeyPlayerServer()
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   SetSelectedTag
+    Function:   SetFilterTag
     Purpose:    Set the currently selected tag for filtering toys.
 -----------------------------------------------------------------------------]]
-function ns.sets:SetSelectedTag(tagKey)
+function ns.sets:SetFilterTag(tagKey)
     ns.db.profile[ns.data.currentPlayerServer].selectedTag = tagKey
 end
 
@@ -128,4 +128,8 @@ function ns.sets:SetFramePosition(frameName, point, relativePoint, xOfs, yOfs)
 
     -- return true since storage was successful
     return true
+end
+
+function ns.sets:SetTagCheckedForMaint(id)
+    ns.db.profile[ns.data.currentPlayerServer].selectedTagForEdit = id
 end

@@ -242,15 +242,118 @@ function ns.tagMaint:ButtonCheckWidth(buttons)
     end
 end
 
+--[[---------------------------------------------------------------------------
+    Function:   IsTagSelected
+    Purpose:    Check if a tag is currently selected for maintenance.
+    Returns:    true if a tag is selected, false otherwise.
+-----------------------------------------------------------------------------]]
 function ns.tagMaint:IsTagSelected()
-    local selectedTag = ns.gets:GetSelectedTag()
+    local selectedTag = ns.gets:GetTagCheckedForMaint()
     return selectedTag ~= "none"
 end
 
-function ns.tagMaint:OnClick_NewTag(above)
-    -- verify tag selected
-    if ns.tagMaint:IsTagSelected() == false then return end
+--[[---------------------------------------------------------------------------
+    Function:   DialogInvalidData
+    Purpose:    Show a dialog to the user indicating that the input data for a new tag is invalid.
+    Arguments:  message - the message to display in the dialog
+-----------------------------------------------------------------------------]]
+function ns.tagMaint:DialogInvalidData(message)
+    -- global id for dialog
+    ns.data.popups.newtaginputfail = addonName .. "NewTagInputFailure"
 
+    -- notify user we are going to reset toy filters
+    StaticPopupDialogs[ns.data.popups.newtaginputfail] = {
+        text = message,
+        button1 = ns.L["OK"],
+        timeout = 30,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+    }
+
+    -- show the popup
+    StaticPopup_Show(ns.data.popups.newtaginputfail)
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   OnClick_NewTag
+    Purpose:    Handle the click event for creating a new tag, either above or below the currently selected tag.
+    Arguments:  above - boolean indicating if the new tag should be placed above (true, -1) or below (false, +1) the selected tag.
+-----------------------------------------------------------------------------]]
+function ns.tagMaint:OnClick_NewTag(above)
+    --@debug@
+    -- ns:Print(("(OnClick_NewTag) Called with above: %s"):format(tostring(above)))
+    --@end-debug@
+
+    -- verify tag selected
+    if ns.tagMaint:IsTagSelected() == false then
+        ns.tagMaint:DialogInvalidData(ns.L["You must select a tag from the list before creating a new tag."])
+        return
+    end
+
+    -- get data
+    local newId = ns.data.ui.editbox.tagIDEditBox:GetText()
+    local newName = ns.data.ui.editbox.tagNameEditBox:GetText()
+    local checkedTag = ns.gets:GetTagCheckedForMaint()
+    local enabled = true
+    local newOrder = ns.db.global.tags.order[checkedTag].order
+
+    -- check id doesn't include anything but lowercase letters and numbers
+    local passIdCharCheck = true
+    local passIdLengthCheck = true
+    if not newId:match("^[a-z0-9]+$") then
+        passIdCharCheck = false
+    elseif #newId > 20 or #newId < 1 then
+        passIdLengthCheck = false
+    end
+
+    -- check name doesn't include anything but mixed case letters and numbers and the length is 20 characters or less
+    local passNameCharCheck = true
+    local passNameLengthCheck = true
+    if not newName:match("^[a-zA-Z0-9]+$") then
+        passNameCharCheck = false
+    elseif #newName > 20 or #newName < 1 then
+        passNameLengthCheck = false
+    end
+
+    -- show failure dialog if any checks fail
+    if passIdCharCheck == false then
+        ns.tagMaint:DialogInvalidData(ns.L["Error: ID may only contain lowercase letters and numbers."])
+        return
+    elseif passIdLengthCheck == false then
+        ns.tagMaint:DialogInvalidData(ns.L["Error: ID may only be 1 to 20 characters."])
+        return
+    elseif passNameCharCheck == false then
+        ns.tagMaint:DialogInvalidData(ns.L["Error: Name may only contain mixed case letters and numbers."])
+        return
+    elseif passNameLengthCheck == false then
+        ns.tagMaint:DialogInvalidData(ns.L["Error: Name may only be 1 to 20 characters."])
+        return
+    end
+
+    -- process based on placement of new tag
+    if above == true then
+        newOrder = newOrder - 1
+    else
+        newOrder = newOrder + 1
+    end
+
+    -- insert new tag
+    local newTagInserted = ns.tagMaint:InsertTag(newId, newName, newOrder, enabled)
+    if newTagInserted.success == false then
+        ns.tagMaint:DialogInvalidData(newTagInserted.message)
+        return
+    end
+
+    -- refresh the tag list
+    ns.tagMaint:PopulateTagMaintList()
+
+    --@debug@
+    -- ns:Print(("(OnClick_NewTag) Done"))
+    --@end-debug@
+end
+
+function ns.tagMaint:OnClick_EditTag()
     -- need global index name for each popup
     ns.data.popups.newtaginput = addonName .. "NewTagInput"
 
@@ -275,19 +378,32 @@ function ns.tagMaint:OnClick_NewTag(above)
     -- show the popup
     StaticPopup_Show(ns.data.popups.resettoyfilters)
 
-    -- process based on placement of new tag
-    if above == true then
-
-    else
-
-    end
-end
-
-function ns.tagMaint:OnClick_EditTag()
-
 end
 
 function ns.tagMaint:OnClick_DeleteTag()
+    -- need global index name for each popup
+    ns.data.popups.newtaginput = addonName .. "NewTagInput"
+
+    -- notify user we are going to reset toy filters
+    StaticPopupDialogs[ns.data.popups.newtaginput] = {
+        text = ns.L["Enter an ID and Name for the tag. ID may only contain lowercase letters and numbers and have a max length of 20 characters."],
+        button1 = ns.L["OK"],
+        button2 = ns.L["Cancel"],
+        timeout = 30,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+        OnAccept = function()
+            local toyCount = ns.ToyFunctions:ResetAPIFilters()
+            ns:Print(("Toy Count: %s"):format(toyCount))
+            ns.ToyFunctions:LoadToyList(toyCount)
+            ns.ToyFunctions:LoadTagList()
+            ns.ToyFunctions:UpdateToyIndexes()
+        end
+    }
+
+    -- show the popup
+    StaticPopup_Show(ns.data.popups.resettoyfilters)
 
 end
 
@@ -336,28 +452,102 @@ function ns.tagMaint:BuildTagOptionsFrame(parentFrame, positionFrame)
     checkboxPreventDelete.frame:SetHeight(checkboxPreventDelete.label:GetStringHeight() + padding)
     frameHeight = frameHeight + checkboxPreventDelete.frame:GetHeight() + (padding * 2)
 
-    -- create buttons for managing tags (New, Edit, Delete)
-    local buttonPadding = 5
-    local btnNewTagAbove = ns:CreateStandardButton(insetFrame, nil, ns.L["New Tag Above"], 40, function() ns.tagMaint:OnClick_NewTag(true) end)
-    btnNewTagAbove:SetPoint("TOPLEFT", checkboxPreventDelete.frame, "BOTTOMLEFT", 0, -buttonPadding)
-    frameHeight = frameHeight + btnNewTagAbove:GetHeight() + buttonPadding
-    local btnNewTagBelow = ns:CreateStandardButton(insetFrame, nil, ns.L["New Tag Below"], 40, function() ns.tagMaint:OnClick_NewTag(false) end)
-    btnNewTagBelow:SetPoint("TOPLEFT", btnNewTagAbove, "BOTTOMLEFT", 0, -buttonPadding)
-    frameHeight = frameHeight + btnNewTagBelow:GetHeight() + buttonPadding
-    local btnEditTag = ns:CreateStandardButton(insetFrame, nil, ns.L["Rename Tag"], 40, function() ns.tagMaint:OnClick_EditTag() end)
-    btnEditTag:SetPoint("TOPLEFT", btnNewTagBelow, "BOTTOMLEFT", 0, -buttonPadding)
-    frameHeight = frameHeight + btnEditTag:GetHeight() + buttonPadding
-    local btnDeleteTag = ns:CreateStandardButton(insetFrame, nil, ns.L["Delete Tag"], 40, function() ns.tagMaint:OnClick_DeleteTag() end)
-    btnDeleteTag:SetPoint("TOPLEFT", btnEditTag, "BOTTOMLEFT", 0, -buttonPadding)
+    -- create buttons for managing tags (Edit, Delete)
+    ns.data.ui.button.editTag = ns:CreateStandardButton(insetFrame, nil, ns.L["Rename Tag"], 40, function() ns.tagMaint:OnClick_EditTag() end)
+    ns.data.ui.button.editTag:SetPoint("TOPLEFT", checkboxPreventDelete.frame, "BOTTOMLEFT", 0, -5)
+    ns.data.ui.button.editTag:Disable()
+    ns.data.ui.button.deleteTag = ns:CreateStandardButton(insetFrame, nil, ns.L["Delete Tag"], 40, function() ns.tagMaint:OnClick_DeleteTag() end)
+    ns.data.ui.button.deleteTag:SetPoint("TOPLEFT", ns.data.ui.button.editTag, "BOTTOMLEFT", 0, -5)
+    ns.data.ui.button.deleteTag:Disable()
 
-    -- instead of buttonPadding (5) we want the same padding as the top
-    frameHeight = frameHeight + btnDeleteTag:GetHeight() + padding
+    -- create frame for tag creation
+    local tagCreateFrame = CreateFrame("Frame", nil, insetFrame) --, "InsetFrameTemplate")
+    tagCreateFrame:SetPoint("TOPLEFT", ns.data.ui.button.deleteTag, "BOTTOMLEFT", 0, -padding)
+    tagCreateFrame:SetPoint("BOTTOMRIGHT", insetFrame, "BOTTOMRIGHT", -padding, padding)
+
+    -- create new title
+    local tagCreateTitle = tagCreateFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    tagCreateTitle:SetPoint("TOPLEFT", tagCreateFrame, "TOPLEFT", 0, 0)
+    tagCreateTitle:SetText(ns.L["Create a Tag:"])
+
+    -- create labels and adjust width
+    local tagIDEditBoxLabel = tagCreateFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    tagIDEditBoxLabel:SetPoint("TOPLEFT", tagCreateTitle, "BOTTOMLEFT", 0, -padding)
+    tagIDEditBoxLabel:SetText(ns.L["ID:"])
+    tagIDEditBoxLabel:SetJustifyH("RIGHT")
+    local tagNameEditBoxLabel = tagCreateFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    tagNameEditBoxLabel:SetPoint("TOPLEFT", tagIDEditBoxLabel, "BOTTOMLEFT", 0, -padding)
+    tagNameEditBoxLabel:SetText(ns.L["Name:"])
+    tagNameEditBoxLabel:SetJustifyH("RIGHT")
+
+    -- fix width of labels for edit boxes
+    local width1 = tagIDEditBoxLabel:GetWidth()
+    local width2 = tagNameEditBoxLabel:GetWidth()
+    local maxWidth = math.max(width1, width2)
+    tagIDEditBoxLabel:SetWidth(maxWidth)
+    tagNameEditBoxLabel:SetWidth(maxWidth)
+
+    -- edit box for tag ID
+    ns.data.ui.editbox.tagIDEditBox = ns:CreateEditBox(tagCreateFrame, 200, 20, true, function(editbox) end)
+    ns.data.ui.editbox.tagIDEditBox:SetPoint("LEFT", tagIDEditBoxLabel, "RIGHT", padding, 0)
+
+    -- create edit box for tag name
+    ns.data.ui.editbox.tagNameEditBox = ns:CreateEditBox(tagCreateFrame, 200, 20, true, function(editbox) end)
+    ns.data.ui.editbox.tagNameEditBox:SetPoint("LEFT", tagNameEditBoxLabel, "RIGHT", padding, 0)
+
+    -- add insert buttons
+    ns.data.ui.button.newTagAbove = ns:CreateStandardButton(insetFrame, nil, ns.L["Insert Above"], 40, function() ns.tagMaint:OnClick_NewTag(true) end)
+    ns.data.ui.button.newTagBelow = ns:CreateStandardButton(insetFrame, nil, ns.L["Insert Below"], 40, function() ns.tagMaint:OnClick_NewTag(false) end)
+    ns.data.ui.button.newTagAbove:Disable()
+    ns.data.ui.button.newTagBelow:Disable()
 
     -- fix button widths
-    ns.tagMaint:ButtonCheckWidth({btnNewTagAbove, btnNewTagBelow, btnEditTag, btnDeleteTag})
+    ns.tagMaint:ButtonCheckWidth({
+        ns.data.ui.button.newTagAbove,
+        ns.data.ui.button.newTagBelow,
+        ns.data.ui.button.editTag,
+        ns.data.ui.button.deleteTag
+    })
+
+    -- position buttons
+    ns.data.ui.button.newTagAbove:SetPoint("TOP", ns.data.ui.editbox.tagNameEditBox, "BOTTOM", 0, -padding)
+    ns.data.ui.button.newTagAbove:SetPoint("LEFT", tagCreateFrame, "LEFT", 0, 0)
+    ns.data.ui.button.newTagBelow:SetPoint("TOPLEFT", ns.data.ui.button.newTagAbove, "BOTTOMLEFT", 0, -5)
+
+    -- note about permissible characters for ID and Name
+    local notes = tagCreateFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    notes:SetPoint("TOPLEFT", ns.data.ui.button.newTagBelow, "BOTTOMLEFT", 0, -padding)
+    notes:SetPoint("RIGHT", tagCreateFrame, "RIGHT", -padding, 0)
+    notes:SetText(("%s%s%s%s"):format(ns.data.colors.orange, ns.L["Note: "], ns.data.colors.ending, ns.L["ID may only contain lowercase letters and numbers. Name may only contain mixed case letters and numbers. Both have a max length of 20 characters."]))
+    notes:SetJustifyH("LEFT")
 
     -- set height of the option frame
-    optionFrame:SetHeight(frameHeight)
+    -- optionFrame:SetHeight(frameHeight)
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   EnableEditMode
+    Purpose:    Enable or disable the edit mode for tag maintenance.
+                When enabled, the edit, delete, insert above and insert below buttons are active, and the edit boxes are editable.
+                When disabled, the buttons are inactive, and the edit boxes are read-only.
+    Arguments:  enable - boolean value to enable (true) or disable (false) edit mode
+-----------------------------------------------------------------------------]]
+function ns.tagMaint:EnableEditMode(enable)
+    if enable == true then
+        ns.data.ui.button.editTag:Enable()
+        ns.data.ui.button.deleteTag:Enable()
+        ns.data.ui.button.newTagAbove:Enable()
+        ns.data.ui.button.newTagBelow:Enable()
+        ns.data.ui.editbox.tagIDEditBox:SetEnabled(true)
+        ns.data.ui.editbox.tagNameEditBox:SetEnabled(true)
+    else
+        ns.data.ui.button.editTag:Disable()
+        ns.data.ui.button.deleteTag:Disable()
+        ns.data.ui.button.newTagAbove:Disable()
+        ns.data.ui.button.newTagBelow:Disable()
+        ns.data.ui.editbox.tagIDEditBox:SetEnabled(false)
+        ns.data.ui.editbox.tagNameEditBox:SetEnabled(false)
+    end
 end
 
 --[[---------------------------------------------------------------------------
@@ -478,6 +668,12 @@ function ns.tagMaint:CheckedTagMaintenance(checkedBox)
         end
     end
 
+    -- update edit mode
+    ns.tagMaint:EnableEditMode(checkedBox:GetChecked() == true)
+
+    -- update profile with selected tag
+    ns.sets:SetTagCheckedForMaint(id)
+
     --@debug@
     if true then
         local isChecked = checkedBox:GetChecked()
@@ -522,4 +718,40 @@ function ns.tagMaint:PopulateTagMaintList()
     --@debug@
     -- ns:Print(("Total Toy Frames Created: %d"):format(#ns.data.ui.frame.items))
     --@end-debug@
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   InsertTag
+    Purpose:    Insert a new tag into the global tags order and refresh the list.
+    Arguments:  id - unique identifier for the new tag
+                name - display name for the new tag
+                order - order value for the new tag
+                enabled - boolean indicating if the tag is enabled
+    Returns:    A table with success status and an optional message.
+-----------------------------------------------------------------------------]]
+function ns.tagMaint:InsertTag(id, name, order, enabled)
+    -- confirm the tag doesn't already exist, if not, insert it, update orders for all tags and refresh the list
+    if ns.db.global.tags.order[id] == nil then
+        -- update all order values to ensure they are sequential and unique
+        for _, tagId in ipairs(ns.db.global.tags.order) do
+            if ns.db.global.tags.order[tagId].order >= order then
+                local currentOrder = ns.db.global.tags.order[tagId].order
+                ns.db.global.tags.order[tagId].order = currentOrder + 1
+            end
+        end
+
+        -- insert after orders are updated
+        ns.db.global.tags.order[id] = { ["order"] = order, ["enabled"] = enabled, ["name"] = name }
+
+        -- return status
+        return {
+            success = true,
+            message = nil
+        }
+    else
+        return {
+            success = false,
+            message = ns.L["Tag ID already exists. Please choose a unique ID."]
+        }
+    end
 end

@@ -28,6 +28,7 @@ L["Unknown"] = "Unknown"
 L["Yes"] = "Yes"
 L["OK"] = "OK"
 L["Cancel"] = "Cancel"
+L["Note: "] = "Note: "
 
 -- Events
 L["Player Logging Out..."] = "Player Logging Out..."
@@ -109,15 +110,18 @@ L["Introduction"] = "Introduction"
 L["Maintain Tags"] = "Maintain Tags"
 L["Prevent Tag Deletion if Toys Assigned"] = "Prevent Tag Deletion if Toys Assigned"
 L["If the option '%s' is checked, the tag will NOT be deleted."] = "If the option '%s' is checked, the tag will NOT be deleted."
-L["New Tag Above"] = "New Tag Above"
-L["New Tag Below"] = "New Tag Below"
+L["Insert Above"] = "Insert Above"
+L["Insert Below"] = "Insert Below"
 L["Rename Tag"] = "Rename Tag"
 L["Delete Tag"] = "Delete Tag"
 L["Tag Edits:"] = "Tag Edits:"
 L["Pick a tag:"] = "Pick a tag:"
 L["Instructions:"] = "Instructions:"
+L["ID may only contain lowercase letters and numbers. Name may only contain mixed case letters and numbers. Both have a max length of 20 characters."] = "ID may only contain lowercase letters and numbers. Name may only contain mixed case letters and numbers. Both have a max length of 20 characters."
 
 -- maintain tags - new tag
+L["ID:"] = "ID:"
+L["Name:"] = "Name:"
 L["Enter an ID and Name for the tag. ID may only contain lowercase letters and numbers and have a max length of 20 characters."] = "Enter an ID and Name for the tag. ID may only contain lowercase letters and numbers and have a max length of 20 characters."
 
 --@end-do-not-package@

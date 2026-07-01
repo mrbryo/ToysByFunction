@@ -89,6 +89,20 @@ ns.data = {
 	tagAttrOrder = "TBFTagOrder",
 	preventTagDelete = true,
 
+	-- colors
+	colors = {
+		white = "|cffffffff",
+		yellow = "|cffffff00",
+		green = "|cff00ff00",
+		blue = "|cff0000ff",
+		purple = "|cffff00ff",
+		red = "|cffff0000",
+		orange = "|cffff7f00",
+		gray = "|cff7f7f7f",
+		label = "|cffffd100",
+		ending = "|r",
+	},
+
 	-- addon ui columns
 	columns = {},
 
@@ -106,6 +120,7 @@ ns.data = {
 		checkbox = {},
 		height = {},
 		tabs = {},
+		button = {},
 	},
 
 	-- track popups
@@ -382,4 +397,9 @@ function ns:InstantiateDBProfile()
     if ns.db.profile[ns.data.currentPlayerServer].tags.order == nil then
         ns.db.profile[ns.data.currentPlayerServer].tags.order = {}
     end
+
+	-- track which tag is selected on the tag maintenance tab
+	if ns.db.profile[ns.data.currentPlayerServer].selectedTagForEdit == nil then
+		ns.db.profile[ns.data.currentPlayerServer].selectedTagForEdit = "none"
+	end
 end

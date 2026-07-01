@@ -31,6 +31,7 @@ end
                 width    - The width of the edit box
                 height   - The height of the edit box
                 readOnly - Boolean to set if the edit box is read-only
+                onEnter  - Callback function when Enter is pressed
     Returns:    The created EditBox frame.
 -----------------------------------------------------------------------------]]
 function ns:CreateEditBox(parent, width, height, readOnly, onEnter)

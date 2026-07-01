@@ -52,9 +52,9 @@ function ns.toyMaint:CreateLeftToyFrame()
             ns:Print(("Tag Selected: %s"):format(key))
             --@end-debug@
             -- need to add code to reload view of toys based on the selected tag
-            -- ns:SetSelectedTag(key)
+            -- ns:SetFilterTag(key)
             -- ns:UpdateToyList()
-            ns.sets:SetSelectedTag(key)
+            ns.sets:SetFilterTag(key)
             ns:PopulateToysByTag()
         end
     end)
@@ -238,7 +238,7 @@ function ns.toyMaint:PopulateToysByTag()
     -- if not ns.data.ui.frame.filteredToys then return end
 
     -- current selected tag
-    local selectedTag = ns.gets:GetSelectedTag() or "none"
+    local selectedTag = ns.gets:GetFilterTag() or "none"
 
     -- create data provided for scrollbox
     if ns.data.dp.leftToyList == nil then
@@ -330,7 +330,7 @@ function ns.toyMaint:UpdateFilterBarTags()
     --@end-debug@
 
     -- get the last selected tag
-    local selectedItem = ns.gets:GetSelectedTag() or "none"
+    local selectedItem = ns.gets:GetFilterTag() or "none"
 
     -- trigger update
     ns.data.ui.dropdown.filterToysByTag:UpdateItems(itemOrder, items, selectedItem)
