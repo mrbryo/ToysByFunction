@@ -123,5 +123,6 @@ L["ID may only contain lowercase letters and numbers. Name may only contain mixe
 L["ID:"] = "ID:"
 L["Name:"] = "Name:"
 L["Enter an ID and Name for the tag. ID may only contain lowercase letters and numbers and have a max length of 20 characters."] = "Enter an ID and Name for the tag. ID may only contain lowercase letters and numbers and have a max length of 20 characters."
+L["Tag ID: "] = "Tag ID: "
 
 --@end-do-not-package@

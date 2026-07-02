@@ -172,7 +172,7 @@ ns.data = {
 		},
 		buttons = {},
 		buttonIndex = {},
-	}
+	},
 }
 
 --[[--------------------------------------------------------------------------
@@ -273,18 +273,21 @@ end
 -----------------------------------------------------------------------------]]
 function ns:InstantiateDB()
     --@debug@
-    if self.gets:GetDevMode() == true then
-        self:Print(ns.L["DB Initialization"])
+    if ns.gets:GetDevMode() == true then
+        ns:Print(ns.L["DB Initialization"])
     end
     --@end-debug@
     -- make sure player key is set
-    self.sets:SetKeyPlayerServerSpec()
-    self.sets:SetKeyPlayerServer()
+    ns.sets:SetKeyPlayerServerSpec()
+    ns.sets:SetKeyPlayerServer()
+
+	-- create log table
+	ns.db.log = {}
 
     -- instantiate db
-    self:InstantiateDBProfile()
-    self:InstantiateDBGlobal()
-    self:InstantiateDBChar()
+    ns:InstantiateDBProfile()
+    ns:InstantiateDBGlobal()
+    ns:InstantiateDBChar()
 end
 
 --[[---------------------------------------------------------------------------

@@ -8,16 +8,76 @@
 local addonName, ns = ...
 ns.tagMaint = {}
 
+-- instructions
+ns.data.tagMaintInstructions = {
+	{
+		row = 1,
+		isHeader = true,
+		text = ns.L["Add a New Tag"],
+		height = 22,
+	},{
+		row = 2,
+		isHeader = false,
+		text = ns.L["Select a tag from the list. Then click 'New Tag Above' or 'New Tag Below' to create a new tag relative to the selected tag."],
+		height = 58,
+	},{
+		row = 3,
+		isHeader = false,
+		text = ns.L["A dialog will show and you must  enter a unique ID and a name for the new tag. The ID may only contain lowercase letters and numbers."],
+		height = 70,
+	},{
+		row = 4,
+		isHeader = true,
+		text = ns.L["Rename Tag"],
+		height = 22,
+	},{
+		row = 5,
+		isHeader = false,
+		text = ns.L["Select a tag from the list. Then click 'Rename Tag' to change the name of the selected tag. ID is not editable."],
+		height = 58,
+	},{
+		row = 6,
+		isHeader = false,
+		text = ns.L["A dialog will show and you must enter a new name for the tag."],
+		height = 34,
+	},{
+		row = 7,
+		isHeader = false,
+		text = ns.L["Note: If you want to change the ID you must create a new tag and delete the old one."],
+		height = 46,
+	},{
+		row = 8,
+		isHeader = true,
+		text = ns.L["Delete Tag"],
+		height = 22,
+	},{
+		row = 9,
+		isHeader = false,
+		text = ns.L["Select a tag from the list. Then click 'Delete Tag' to remove the selected tag."],
+		height = 46,
+	},{
+		row = 10,
+		isHeader = false,
+		text = (ns.L["If the option '%s' is checked, the tag will NOT be deleted."]):format(ns.L["Prevent Tag Deletion if Toys Assigned"]),
+		height = 58,
+	},{
+		row = 11,
+		isHeader = false,
+		text = ns.L["Otherwise, tags are deleted but associated toys moved to the uncategorized tag."],
+		height = 46,
+	},
+}
+
 --[[---------------------------------------------------------------------------
     Function:   ProcessTagMaintFrame
     Purpose:    Create a frame with a checkbox to protect on delete and buttons for tag maintenance actions (New, Edit, Delete).
 -----------------------------------------------------------------------------]]
 function ns.tagMaint:ProcessTagMaintFrame(tabKey)
-    -- standard variables
-    local padding = ns.data.constants.ui.generic.padding
-
     -- set the tabkey property
     ns.tagMaint.tabKey = tabKey
+    
+    -- skip if the tab already exists
+    if ns.data.ui.tabs[ns.tagMaint.tabKey] ~= nil then return end
 
     -- create the content frame for the tab if it doesn't exist, if it exists then all this content already exists
     ns.tabs:CreateTabContentFrame(tabKey)
@@ -49,16 +109,40 @@ function ns.tagMaint:CreateMaintainTagsFrame()
     title:SetJustifyH("CENTER")
     title:SetText(ns.L["Maintain Tags"])
 
+    -- create button for showing instructions
+    local instructBtn = ns:CreateStandardButton(ns.data.ui.tabs[ns.tagMaint.tabKey], nil, ns.L["Show Instructions"], 125, function(button)
+        if ns.data.ui.frame.tagMaintInstructions == nil then
+            ns.data.ui.frame.tagMaintInstructions = ns.tagMaint:ShowInstructions(mainFrame)
+            ns.data.ui.frame.tagMaintInstructions:Show()
+            button:SetText(ns.L["Hide Instructions"])
+            --@debug@
+            -- ns:Print("Created instructions frame for tag maintenance.")
+            --@end-debug@
+        else
+            if ns.data.ui.frame.tagMaintInstructions:IsVisible() == true then
+                --@debug@
+                -- ns:Print("Instructions frame for tag maintenance is visible, hiding it.")
+                --@end-debug@
+                ns.data.ui.frame.tagMaintInstructions:Hide()
+                button:SetText(ns.L["Show Instructions"])
+            else
+                --@debug@
+                -- ns:Print("Instructions frame for tag maintenance is hidden, showing it.")
+                --@end-debug@
+                ns.data.ui.frame.tagMaintInstructions:Show()
+                button:SetText(ns.L["Hide Instructions"])
+            end
+        end
+    end)
+    instructBtn:SetPoint("LEFT", title, "LEFT", 50, 0)
+
     -- create inset frame
     local insetFrame = CreateFrame("Frame", nil, mainFrame, "InsetFrameTemplate")
     insetFrame:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, 0)
     insetFrame:SetPoint("BOTTOMRIGHT", mainFrame, "BOTTOMRIGHT", 0, 0)
 
-    -- create left column for instructions
-    local instructFrame = ns.tagMaint:BuildInstructionColumn(insetFrame, 350)
-
     -- create frame for picking a tag
-    local pickTagFrame = ns.tagMaint:BuildTagListingColumn(insetFrame, instructFrame, 200)
+    local pickTagFrame = ns.tagMaint:BuildTagListingColumn(insetFrame, 550)
 
     -- creation options and button
     local optionsFrame = ns.tagMaint:BuildTagOptionsFrame(insetFrame, pickTagFrame)
@@ -68,7 +152,7 @@ end
     Function:   BuildInstructionColumn
     Purpose:    Create instructions for the tag maintenance functionality.
 -----------------------------------------------------------------------------]]
-function ns.tagMaint:BuildInstructionColumn(parentFrame, columnWidth)
+--[[function ns.tagMaint:BuildInstructionColumn(parentFrame, columnWidth)
     -- standard variables
     local padding = ns.data.constants.ui.generic.padding
 
@@ -186,20 +270,125 @@ function ns.tagMaint:BuildInstructionColumn(parentFrame, columnWidth)
 
     -- return the column
     return instructFrame
+end]]
+
+--[[---------------------------------------------------------------------------
+    Function:   ShowInstructions
+    Purpose:    Show instructions for tag maintenance in a scrollable frame.
+    Arguments:  parentFrame - the parent frame to attach the instructions to
+-----------------------------------------------------------------------------]]
+function ns.tagMaint:ShowInstructions(parentFrame)
+    -- standard variables
+    local padding = ns.data.constants.ui.generic.padding
+
+    -- table setup
+    ns.data.ui.height.tagMaintInstructCell = {}
+
+    -- create frame and attach to leftside of parentFrame
+    local attachFrame = CreateFrame("Frame", nil, parentFrame, "InsetFrameTemplate")
+    attachFrame:SetPoint("TOPRIGHT", parentFrame, "TOPLEFT", -10, 0)
+    attachFrame:SetPoint("BOTTOMRIGHT", parentFrame, "BOTTOMLEFT", -10, 0)
+    -- attachFrame:SetFrameStrata("MEDIUM") -- set below the main frame which is "HIGH"
+    attachFrame:SetWidth(250)
+
+    -- instruction frame title
+    local title = attachFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    title:SetPoint("TOPLEFT", attachFrame, "TOPLEFT", padding, -padding)
+    title:SetText(ns.L["Instructions:"])
+
+    -- 1. create scroll frame components
+    local scrollBox = CreateFrame("Frame", nil, attachFrame, "WowScrollBoxList")
+    scrollBox:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -5)
+    scrollBox:SetPoint("BOTTOMRIGHT", attachFrame, "BOTTOMRIGHT", -20, 5)
+
+    local scrollBar = CreateFrame("EventFrame", nil, attachFrame, "MinimalScrollBar")
+    scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, 0)
+    scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 0)
+
+    -- 2. configure view with fixed row height; for variable-height elements
+    local view = CreateScrollBoxListLinearView()
+
+    -- 3. Element initializer (called when a row becomes visible)
+    view:SetElementInitializer("BackdropTemplate", function(frame, data)
+        --@debug@
+        -- ns:Print(("Initializing element for row %d..."):format(data.row))
+        --@end-debug@
+
+        -- standard variables
+        local padding = ns.data.constants.ui.generic.padding
+
+        -- padding for text listing
+        local spacing = 5
+
+        -- check if header or text
+        if data.isHeader == true then
+            -- create header row
+            frame.mycontent = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+            frame.mycontent:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -padding)
+            frame.mycontent:SetPoint("RIGHT", frame, "RIGHT", -padding, 0)
+            frame.mycontent:SetText(data.text)
+            frame.mycontent:SetJustifyH("LEFT")
+            data.newHeight = frame.mycontent:GetStringHeight() + (spacing * 2)
+        else
+            -- add bullet
+            frame.mybullet = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+            frame.mybullet:SetText("• ")
+            frame.mybullet:SetPoint("TOPLEFT", frame, "TOPLEFT", spacing, -spacing)
+
+            -- add text
+            frame.mycontent = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+            frame.mycontent:SetPoint("TOPLEFT", frame.mybullet, "TOPRIGHT", 0, 0)
+            frame.mycontent:SetPoint("RIGHT", frame, "RIGHT", -spacing, 0)
+            frame.mycontent:SetText(data.text)
+            frame.mycontent:SetJustifyH("LEFT")
+            frame.mycontent:SetJustifyV("TOP")
+            frame.mycontent:SetWordWrap(true)
+        end
+
+        -- save height of frame
+        ns.data.tagMaintInstructions[data.row].height = frame.mycontent:GetStringHeight() + (spacing * 2)
+        -- ns:Print(("Height of Row %d = %d"):format(data.row, frame.mycontent:GetStringHeight() + (spacing * 2)))
+    end)
+    view:SetElementExtentCalculator(function(dataIndex, data)
+        --@debug@
+        -- ns:Print(("Calculating height for dataIndex %d with name %s"):format(dataIndex, data.name or "Unknown"))
+        --@end-debug@
+        return data.height
+    end)
+
+    -- 4. Element resetter (cleanup when row scrolls out of view)
+    view:SetElementResetter(function(frame) end)
+
+    -- 5. Connect everything
+    ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
+
+    -- 6. Auto-hide scrollbar when not needed
+    ScrollUtil.AddManagedScrollBarVisibilityBehavior(scrollBox, scrollBar)
+
+    -- 7. load the data
+    local dp = CreateDataProvider()
+    view:SetDataProvider(dp)
+    dp:InsertTable(ns.data.tagMaintInstructions)
+    -- dp:Flush()
+    -- dp:InsertTable(ns.data.tagMaintInstructions)
+    -- ns:Print(("Loaded %d rows of instructions for tag maintenance."):format(dp:GetSize()))
+
+    -- 8. return the frame
+    return attachFrame
 end
 
 --[[---------------------------------------------------------------------------
     Function:   BuildTagListingColumn
     Purpose:    Create a scrollable list of tags for selection.
 -----------------------------------------------------------------------------]]
-function ns.tagMaint:BuildTagListingColumn(parentFrame, positionFrame, columnWidth)
+function ns.tagMaint:BuildTagListingColumn(parentFrame, columnWidth)
     -- standard variables
     local padding = ns.data.constants.ui.generic.padding
 
     -- create frame to hold all content
     local pickTagFrame = CreateFrame("Frame", nil, parentFrame) --, "InsetFrameTemplate")
-    pickTagFrame:SetPoint("TOPLEFT", positionFrame, "TOPRIGHT", 0, 0)
-    pickTagFrame:SetPoint("BOTTOMLEFT", positionFrame, "BOTTOMRIGHT", 0, 0)
+    pickTagFrame:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", 0, 0)
+    pickTagFrame:SetPoint("BOTTOMLEFT", parentFrame, "BOTTOMLEFT", 0, 0)
     pickTagFrame:SetWidth(columnWidth)
 
     -- create scroll box for tag maintenance
@@ -629,12 +818,17 @@ function ns.tagMaint:CreateTagMaintScrollList(parent)
             frame.tagCheckbox:SetScript("OnClick", function(self)
                 ns.tagMaint:CheckedTagMaintenance(self)
             end)
+
+            -- add smaller text below title with tag id
+            frame.tagIdLabel = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+            frame.tagIdLabel:SetPoint("TOPLEFT", frame.tagCheckbox, "BOTTOMLEFT", 0, -2)
         end
 
         -- update/set attribute and text
         frame.tagCheckbox:SetAttribute(ns.data.tagAttrName, data.tagId)
         frame.tagCheckbox:SetAttribute(ns.data.tagAttrOrder, data.order)
         frame.tagCheckbox.Text:SetText(data.name)
+        frame.tagIdLabel:SetText(("%s%s"):format(ns.L["Tag ID: "], tostring(data.tagId)))
     end)
 
     -- 4. Element resetter (cleanup when row scrolls out of view)
@@ -754,4 +948,8 @@ function ns.tagMaint:InsertTag(id, name, order, enabled)
             message = ns.L["Tag ID already exists. Please choose a unique ID."]
         }
     end
+end
+
+function ns.tagMaint:ShowRightClickMenu()
+
 end
