@@ -19,7 +19,9 @@ local addonName, ns = ...
 function ns:CreateStandardButton(parent, buttonName, text, width, onClick)
     local button = CreateFrame("Button", buttonName, parent, "GameMenuButtonTemplate")
     button:SetSize(width or 120, 22)
-    button:SetText(text)
+    if text ~= nil then
+        button:SetText(text)
+    end
     button:SetScript("OnClick", onClick)
     return button
 end

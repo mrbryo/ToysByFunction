@@ -57,7 +57,7 @@ function ns.tabs:ShowTabContent(tabKey)
         ns.tagMaint:ProcessTagMaintFrame(tabKey)
     elseif tabKey == "toymaint" then
         -- tabs\ToyMaint.lua
-        ns.toymaint:ProcessToyMaintFrame(tabKey)
+        ns.toyMaint:ProcessToyMaintFrame(tabKey)
     -- elseif tabKey == "developer" then
     --     -- tabs\Developer.lua
     --     ns.developer:ProcessDeveloperFrame(tabKey)

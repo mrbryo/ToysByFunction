@@ -114,15 +114,25 @@ L["Insert Above"] = "Insert Above"
 L["Insert Below"] = "Insert Below"
 L["Rename Tag"] = "Rename Tag"
 L["Delete Tag"] = "Delete Tag"
+L["Clear Data"] = "Clear Data"
 L["Tag Edits:"] = "Tag Edits:"
 L["Pick a tag:"] = "Pick a tag:"
 L["Instructions:"] = "Instructions:"
-L["ID may only contain lowercase letters and numbers. Name may only contain mixed case letters and numbers. Both have a max length of 20 characters."] = "ID may only contain lowercase letters and numbers. Name may only contain mixed case letters and numbers. Both have a max length of 20 characters."
+L["ID may only contain lowercase letters and numbers. Name may only contain mixed case letters, spaces and numbers. Both have a max length of 20 characters."] = "ID may only contain lowercase letters and numbers. Name may only contain mixed case letters, spaces and numbers. Both have a max length of 20 characters."
+L["This will reorder all tags in alphabetical order based on name. Proceed?"] = "This will reorder all tags in alphabetical order based on name. Proceed?"
 
 -- maintain tags - new tag
 L["ID:"] = "ID:"
 L["Name:"] = "Name:"
-L["Enter an ID and Name for the tag. ID may only contain lowercase letters and numbers and have a max length of 20 characters."] = "Enter an ID and Name for the tag. ID may only contain lowercase letters and numbers and have a max length of 20 characters."
+L["Enter a new Name for the tag. Name may only contain mixed case letters, spaces and numbers and have a max length of 20 characters."] = "Enter a new Name for the tag. Name may only contain mixed case letters, spaces and numbers and have a max length of 20 characters."
 L["Tag ID: "] = "Tag ID: "
+L["Error: ID may only contain lowercase letters and numbers."] = "Error: ID may only contain lowercase letters and numbers."
+L["Error: ID may only be 1 to 20 characters."] = "Error: ID may only be 1 to 20 characters."
+L["Error: Name may only contain mixed case letters, spaces and numbers."] = "Error: Name may only contain mixed case letters, spaces and numbers."
+L["Error: Name may only be 1 to 20 characters."] = "Error: Name may only be 1 to 20 characters."
+
+-- maintain tags - delete tag
+-- next line uses L["uncategorized"] when being used in a dialog
+L["is required for the addon to function correctly. Can't delete it."] = "is required for the addon to function correctly. Can't delete it."
 
 --@end-do-not-package@
