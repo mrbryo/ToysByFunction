@@ -5,6 +5,7 @@
 	Description: 	Building the Tag Maintenance tab in the UI.
 -----------------------------------------------------------------------------]]
 
+---@class ns
 local addonName, ns = ...
 ns.tagMaint = {}
 
@@ -364,7 +365,7 @@ local function OnClick_NewTag(above)
 
     -- verify tag selected
     if ns.tagMaint:IsTagSelected() == false then
-        ns.tagMaint:DialogInvalidData(ns.L["You must select a tag from the list before creating a new tag."])
+        ns:GenericPopup(ns.L["You must select a tag from the list before creating a new tag."])
         return
     end
 
@@ -395,16 +396,16 @@ local function OnClick_NewTag(above)
 
     -- show failure dialog if any checks fail
     if passIdCharCheck == false then
-        ns.tagMaint:DialogInvalidData(ns.L["Error: ID may only contain lowercase letters and numbers."])
+        ns:GenericPopup(ns.L["Error: ID may only contain lowercase letters and numbers."])
         return
     elseif passIdLengthCheck == false then
-        ns.tagMaint:DialogInvalidData(ns.L["Error: ID may only be 1 to 20 characters."])
+        ns:GenericPopup(ns.L["Error: ID may only be 1 to 20 characters."])
         return
     elseif passNameCharCheck == false then
-        ns.tagMaint:DialogInvalidData(ns.L["Error: Name may only contain mixed case letters, spaces and numbers."])
+        ns:GenericPopup(ns.L["Error: Name may only contain mixed case letters, spaces and numbers."])
         return
     elseif passNameLengthCheck == false then
-        ns.tagMaint:DialogInvalidData(ns.L["Error: Name may only be 1 to 20 characters."])
+        ns:GenericPopup(ns.L["Error: Name may only be 1 to 20 characters."])
         return
     end
 
@@ -418,7 +419,7 @@ local function OnClick_NewTag(above)
     -- insert new tag
     local newTagInserted = InsertTag(newId, newName, newOrder, enabled)
     if newTagInserted.success == false then
-        ns.tagMaint:DialogInvalidData(newTagInserted.message)
+        ns:GenericPopup(newTagInserted.message)
         return
     end
 
@@ -515,6 +516,51 @@ local function OnClick_DeleteTag()
 
     -- next fresh the tag listing
     PopulateTagMaintList()
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   OnClick_EditTag
+    Purpose:    Handle the click event for editing a tag. This function will reset toy filters and reload the toy list and tag list.
+-----------------------------------------------------------------------------]]
+local function OnClick_EditTag()
+    -- need global index name for each popup
+    ns.data.popups.editTag = addonName .. "NewTagInput"
+
+    -- notify user we are going to reset toy filters
+    if StaticPopupDialogs[ns.data.popups.editTag] == nil then
+        local newIndex = #ns.data.popups + 1
+        StaticPopupDialogs[ns.data.popups.editTag] = {
+            text = ns.L["Enter a new Name for the tag. Name may only contain mixed case letters, spaces and numbers and have a max length of 20 characters."],
+            button1 = ns.L["OK"],
+            button2 = ns.L["Cancel"],
+            whileDead = true,
+            hideOnEscape = true,
+            preferredIndex = newIndex,
+            hasEditBox = true,
+            maxLetters = 20,
+            OnAccept = function(thepopup)
+                -- get selected tag and its data
+                local tagId = ns.gets:GetTagCheckedForMaint()
+
+                -- trigger the rename
+                RenameTag(tagId, thepopup.EditBox:GetText())
+            end,
+            OnShow = function(thepopup)
+                -- get selected tag and its data
+                local tagId = ns.gets:GetTagCheckedForMaint()
+                local tagData = ns.db.global.tags.order[tagId]
+
+                -- populate the edit box
+                thepopup.EditBox:SetText((tagData.name or ""))
+
+                -- make it easier for user to just start typing
+                thepopup.EditBox:SetFocus()
+            end,
+        }
+    end
+
+    -- show the popup
+    StaticPopup_Show(ns.data.popups.editTag)
 end
 
 --[[---------------------------------------------------------------------------
@@ -674,29 +720,6 @@ function ns.tagMaint:IsTagSelected()
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   DialogInvalidData
-    Purpose:    Show a dialog to the user indicating that the input data for a new tag is invalid.
-    Arguments:  message - the message to display in the dialog
------------------------------------------------------------------------------]]
-function ns.tagMaint:DialogInvalidData(message)
-    -- global id for dialog
-    ns.data.popups.newtaginputfail = addonName .. "NewTagInputFailure"
-
-    -- notify user we are going to reset toy filters
-    StaticPopupDialogs[ns.data.popups.newtaginputfail] = {
-        text = message,
-        button1 = ns.L["OK"],
-        timeout = 30,
-        whileDead = true,
-        hideOnEscape = true,
-        preferredIndex = 3,
-    }
-
-    -- show the popup
-    StaticPopup_Show(ns.data.popups.newtaginputfail)
-end
-
---[[---------------------------------------------------------------------------
     Function:   RenameTag
     Purpose:    Rename a tag in the global tag order after validating the new name.
     Arguments:  tagId - the ID of the tag to rename
@@ -718,10 +741,10 @@ local function RenameTag(tagId, newName)
 
     -- show failure dialog if any checks fail
     if passNameCharCheck == false then
-        ns.tagMaint:DialogInvalidData(ns.L["Error: Name may only contain mixed case letters, spaces and numbers."])
+        ns:GenericPopup(ns.L["Error: Name may only contain mixed case letters, spaces and numbers."])
         return
     elseif passNameLengthCheck == false then
-        ns.tagMaint:DialogInvalidData(ns.L["Error: Name may only be 1 to 20 characters."])
+        ns:GenericPopup(ns.L["Error: Name may only be 1 to 20 characters."])
         return
     end
 
@@ -730,51 +753,6 @@ local function RenameTag(tagId, newName)
 
     -- refresh the tag list
     PopulateTagMaintList()
-end
-
---[[---------------------------------------------------------------------------
-    Function:   OnClick_EditTag
-    Purpose:    Handle the click event for editing a tag. This function will reset toy filters and reload the toy list and tag list.
------------------------------------------------------------------------------]]
-local function OnClick_EditTag()
-    -- need global index name for each popup
-    ns.data.popups.editTag = addonName .. "NewTagInput"
-
-    -- notify user we are going to reset toy filters
-    if StaticPopupDialogs[ns.data.popups.editTag] == nil then
-        local newIndex = #ns.data.popups + 1
-        StaticPopupDialogs[ns.data.popups.editTag] = {
-            text = ns.L["Enter a new Name for the tag. Name may only contain mixed case letters, spaces and numbers and have a max length of 20 characters."],
-            button1 = ns.L["OK"],
-            button2 = ns.L["Cancel"],
-            whileDead = true,
-            hideOnEscape = true,
-            preferredIndex = newIndex,
-            hasEditBox = true,
-            maxLetters = 20,
-            OnAccept = function(thepopup)
-                -- get selected tag and its data
-                local tagId = ns.gets:GetTagCheckedForMaint()
-
-                -- trigger the rename
-                RenameTag(tagId, thepopup.EditBox:GetText())
-            end,
-            OnShow = function(thepopup)
-                -- get selected tag and its data
-                local tagId = ns.gets:GetTagCheckedForMaint()
-                local tagData = ns.db.global.tags.order[tagId]
-
-                -- populate the edit box
-                thepopup.EditBox:SetText((tagData.name or ""))
-
-                -- make it easier for user to just start typing
-                thepopup.EditBox:SetFocus()
-            end,
-        }
-    end
-
-    -- show the popup
-    StaticPopup_Show(ns.data.popups.editTag)
 end
 
 --[[---------------------------------------------------------------------------

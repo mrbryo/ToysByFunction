@@ -5,6 +5,7 @@
 	Description: 	All initialization needed for the addon to function.
 -----------------------------------------------------------------------------]]
 
+---@class ns
 local addonName, ns = ...
 
 -- ─── Secret Value helper (Midnight 12.0) ─────────────────

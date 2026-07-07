@@ -107,8 +107,20 @@ function ns.gets:GetOptionPreventTagDelete()
     return ns.db.profile[ns.data.currentPlayerServer].preventTagDelete
 end
 
+--[[---------------------------------------------------------------------------
+    Function:   GetTagCheckedForMaint
+    Purpose:    Get the value from the current players profile for the selected tag to be edited.
+-----------------------------------------------------------------------------]]
 function ns.gets:GetTagCheckedForMaint()
     return ns.db.profile[ns.data.currentPlayerServer].selectedTagForEdit or "none"
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   SetMoveToyTag
+    Purpose:    Set the currently selected tag for moving toys.
+-----------------------------------------------------------------------------]]
+function ns.gets:GetMoveToyTag()
+    return ns.db.profile[ns.data.currentPlayerServer].moveToyTag
 end
 
 --[[---------------------------------------------------------------------------

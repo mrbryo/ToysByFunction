@@ -5,6 +5,7 @@
 	Description: 	Standardize UI element creation for the addon.
 -----------------------------------------------------------------------------]]
 
+---@class ns
 local addonName, ns = ...
 
 --[[---------------------------------------------------------------------------
@@ -17,12 +18,23 @@ local addonName, ns = ...
     Returns:    The created Button frame.
 -----------------------------------------------------------------------------]]
 function ns:CreateStandardButton(parent, buttonName, text, width, onClick)
+    -- create the button
     local button = CreateFrame("Button", buttonName, parent, "GameMenuButtonTemplate")
-    button:SetSize(width or 120, 22)
+
+    -- update text
     if text ~= nil then
         button:SetText(text)
     end
+
+    -- update the on click script
     button:SetScript("OnClick", onClick)
+
+    -- determine width
+    local textWidth = button:GetFontString():GetStringWidth()
+    width = textWidth + 20  -- Add some padding
+    button:SetSize(width, 22)
+
+    -- finally return the button
     return button
 end
 
@@ -40,7 +52,7 @@ function ns:CreateEditBox(parent, width, height, readOnly, onEnter)
     local editBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
     editBox:SetSize(width or 200, height or 20)
     editBox:SetAutoFocus(false)
-    
+
     if readOnly then
         editBox:SetEnabled(false)
         editBox:SetTextColor(GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
@@ -48,10 +60,10 @@ function ns:CreateEditBox(parent, width, height, readOnly, onEnter)
 
     if onEnter then
         editBox:SetScript("OnEnterPressed", function(self)
-            onEnter(self) 
+            onEnter(self)
         end)
     end
-    
+
     return editBox
 end
 
@@ -305,6 +317,29 @@ function ns:CreateDropdown(parent, itemOrder, items, initialValue, frameName, on
     
     -- return the created dropdown
     return dropdown
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   DialogInvalidData
+    Purpose:    Generic popup dialog to notify the user of something.
+    Arguments:  message - the message to display in the dialog
+-----------------------------------------------------------------------------]]
+function ns:GenericPopup(message)
+    -- global id for dialog
+    ns.data.popups.generic = addonName .. "GenericPopup"
+
+    -- notify user we are going to reset toy filters
+    StaticPopupDialogs[ns.data.popups.generic] = {
+        text = message,
+        button1 = ns.L["OK"],
+        timeout = 30,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+    }
+
+    -- show the popup
+    StaticPopup_Show(ns.data.popups.generic)
 end
 
 -- EOF

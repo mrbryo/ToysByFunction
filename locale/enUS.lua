@@ -83,13 +83,13 @@ L["Chinese (Traditional)"] = "Chinese (Traditional)"
 -- tab processing
 L["Error: tabKey (%s) provided to ProcessTabContentFrame is invalid."] = "Error: tabKey (%s) provided to ProcessTabContentFrame is invalid."
 
--- tabs
+-- tabs/Tabs.lua
 L["about"] = "About"
 L["introduction"] = "Introduction"
 L["tagmaint"] = "Maintain Tags"
 L["toymaint"] = "Maintain Toys"
 
--- about tab
+-- tabs/About.lua
 L["Author"] = "Author"
 L["Version"] = "Version"
 L["If you find this addon useful, please consider supporting its development through one of these options below. Addon development can take hours for the simplest complexity to months for very complex. Thank you for your support!"] = "If you find this addon useful, please consider supporting its development through one of these options below. Addon development can take hours for the simplest complexity to months for very complex. Thank you for your support!"
@@ -103,10 +103,10 @@ L["Localization"] = "Localization"
 L["Help translate this addon into your language."] = "Help translate this addon into your language."
 L["Translators"] = "Translators"
 
--- introduction tab
+-- tabs/Introduction.lua
 L["Introduction"] = "Introduction"
 
--- maintain tags
+-- tabs/TagMaint.lua
 L["Maintain Tags"] = "Maintain Tags"
 L["Prevent Tag Deletion if Toys Assigned"] = "Prevent Tag Deletion if Toys Assigned"
 L["If the option '%s' is checked, the tag will NOT be deleted."] = "If the option '%s' is checked, the tag will NOT be deleted."
@@ -121,7 +121,7 @@ L["Instructions:"] = "Instructions:"
 L["ID may only contain lowercase letters and numbers. Name may only contain mixed case letters, spaces and numbers. Both have a max length of 20 characters."] = "ID may only contain lowercase letters and numbers. Name may only contain mixed case letters, spaces and numbers. Both have a max length of 20 characters."
 L["This will reorder all tags in alphabetical order based on name. Proceed?"] = "This will reorder all tags in alphabetical order based on name. Proceed?"
 
--- maintain tags - new tag
+-- tabs/TagMaint.lua - new tag
 L["ID:"] = "ID:"
 L["Name:"] = "Name:"
 L["Enter a new Name for the tag. Name may only contain mixed case letters, spaces and numbers and have a max length of 20 characters."] = "Enter a new Name for the tag. Name may only contain mixed case letters, spaces and numbers and have a max length of 20 characters."
@@ -131,8 +131,14 @@ L["Error: ID may only be 1 to 20 characters."] = "Error: ID may only be 1 to 20 
 L["Error: Name may only contain mixed case letters, spaces and numbers."] = "Error: Name may only contain mixed case letters, spaces and numbers."
 L["Error: Name may only be 1 to 20 characters."] = "Error: Name may only be 1 to 20 characters."
 
--- maintain tags - delete tag
+-- tabs/TagMaint.lua - delete tag
 -- next line uses L["uncategorized"] when being used in a dialog
 L["is required for the addon to function correctly. Can't delete it."] = "is required for the addon to function correctly. Can't delete it."
+
+-- tabs/ToyMaint.lua
+L["No Tag Selected"] = "No Tag Selected"
+L["Toy Functions"] = "Toy Functions"
+L["Move Toys"] = "Move Toys"
+L["Last Log"] = "Last Log"
 
 --@end-do-not-package@

@@ -74,6 +74,14 @@ function ns.sets:SetFilterTag(tagKey)
 end
 
 --[[---------------------------------------------------------------------------
+    Function:   SetMoveToyTag
+    Purpose:    Set the currently selected tag for moving toys.
+-----------------------------------------------------------------------------]]
+function ns.sets:SetMoveToyTag(tagKey)
+    ns.db.profile[ns.data.currentPlayerServer].moveToyTag = tagKey
+end
+
+--[[---------------------------------------------------------------------------
     Function:   SetToySortingOrderMainConfig
     Purpose:    Set the current toy sorting order for the main config.
 -----------------------------------------------------------------------------]]
