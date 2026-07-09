@@ -30,8 +30,10 @@ function ns:CreateStandardButton(parent, buttonName, text, width, onClick)
     button:SetScript("OnClick", onClick)
 
     -- determine width
-    local textWidth = button:GetFontString():GetStringWidth()
-    width = textWidth + 20  -- Add some padding
+    if width == nil then
+        local textWidth = button:GetFontString():GetStringWidth()
+        width = textWidth + 20  -- Add some padding
+    end
     button:SetSize(width, 22)
 
     -- finally return the button

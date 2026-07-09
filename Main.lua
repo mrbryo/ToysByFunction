@@ -239,7 +239,7 @@ end
 function ns:RestoreFramePosition(frame, frameWidth, frameHeight)
     -- get frame name
     local frameName = frame:GetName()
-    
+
     -- get stored position data
     local storedPosition = ns.gets:GetFramePosition(frameName)
     ns:Print(("Stored Position for %s: %s"):format(frameName, storedPosition and ("point=%s, relativePoint=%s, xOffset=%.1f, yOffset=%.1f"):format(storedPosition.point, storedPosition.relativePoint, storedPosition.xOffset, storedPosition.yOffset) or "nil"))
@@ -250,29 +250,29 @@ function ns:RestoreFramePosition(frame, frameWidth, frameHeight)
         end
         --@end-debug@
     end
-    
+
     -- default to center position
     local point = "CENTER"
     local relativePoint = "CENTER"
     local xOffset = 0
     local yOffset = 0
-    
+
     -- if we have stored position data, validate it's within bounds
     if storedPosition and storedPosition.point and storedPosition.xOffset and storedPosition.yOffset then
         local testX = storedPosition.xOffset
         local testY = storedPosition.yOffset
-        
+
         -- get UIParent dimensions for bounds checking
         local screenWidth = UIParent:GetWidth()
         local screenHeight = UIParent:GetHeight()
-        
+
         -- calculate frame boundaries
         local halfWidth = frameWidth / 2
         local halfHeight = frameHeight / 2
-        
+
         -- check if frame would be completely within UIParent bounds
         local withinBounds = true
-        
+
         -- for CENTER positioning, check if frame stays within screen
         if storedPosition.point == "CENTER" then
             if (testX - halfWidth < -screenWidth/2) or (testX + halfWidth > screenWidth/2) or
@@ -292,14 +292,14 @@ function ns:RestoreFramePosition(frame, frameWidth, frameHeight)
                 withinBounds = false
             end
         end
-        
+
         -- use stored position if within bounds
         if withinBounds == true then
             point = storedPosition.point
             relativePoint = storedPosition.relativePoint
             xOffset = testX
             yOffset = testY
-            
+
             --@debug@
             -- if ns.gets:GetDevMode() == true then
             --     ns:Print(("Frame positioned from stored data: %s %.1f %.1f."):format(point, xOffset, yOffset))
@@ -319,17 +319,21 @@ function ns:RestoreFramePosition(frame, frameWidth, frameHeight)
         -- end
         --@end-debug@
     end
-    
+
     -- Set the frame position
     frame:SetPoint(point, frame:GetParent(), relativePoint, xOffset, yOffset)
     return true
+end
+
+function ns:RestoreFrameSize(frame)
+
 end
 
 --[[---------------------------------------------------------------------------
     Function:   ShowUI
     Purpose:    Open custom UI to show last sync errors to user.
 -----------------------------------------------------------------------------]]
-function ns:ShowUI(openDelaySeconds)
+function ns:ShowConfigUI(openDelaySeconds)
     -- make sure key name, server and spec are set
     ns.sets:SetKeyPlayerServerSpec()
 

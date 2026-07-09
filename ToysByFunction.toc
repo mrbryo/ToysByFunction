@@ -54,5 +54,7 @@ tabs\ToyMaint.lua
 Sets.lua
 Gets.lua
 Options.lua
+ScrollToys.lua
 Main.lua
+FunctionFrame.lua
 Minimap.lua

@@ -38,15 +38,32 @@ end
 -- name: the addon name string (e.g. "CompartmentDemo")
 -- mouseButton: "LeftButton" or "RightButton"
 function ToysByFunctionAddon_OnClick(name, mouseButton)
+    --@debug@
+    -- functions for dev mode
+    local function IsDevModeSelected()
+        return ns.gets:GetDevMode()
+    end
+    local function SetDevMode()
+        ns.sets:SetDevMode()
+    end
+    --@end-debug@
+
+    -- process menu clicks
     if mouseButton == "LeftButton" then
         -- open main window
-        ns:ShowUI()
+        ns:ShowFunctionUI()
     elseif mouseButton == "RightButton" then
         -- open functions window
         -- owner populated by the Compartment system, used as the anchor for the dropdown menu
         MenuUtil.CreateContextMenu(owner, function(owner, rootDescription)
+            rootDescription:CreateButton(ns.L["Open Configuration"], function() ns:ShowConfigUI() end)
+            rootDescription:CreateDivider()
             rootDescription:CreateButton("Open Addon Options", ToysByFunctionAddon_OpenOptions)
             rootDescription:CreateButton("(Re)Scan Toys", ToysByFunctionAddon_ScanToys)
+            --@debug@
+            rootDescription:CreateDivider()
+            rootDescription:CreateCheckbox(ns.L["Dev Mode"], IsDevModeSelected, SetDevMode)
+            --@end-debug@
         end)
         -- ns:Print("Minimap button right-clicked. No options menu yet, but this is where it would go.")
     end

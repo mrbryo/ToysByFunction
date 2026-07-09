@@ -95,7 +95,7 @@ function ns.about:ProcessAboutFrame(tabKey)
             ["localization"] = {
                 type = "data",
                 label = ns.L["Localization"],
-                text = "https://legacy.curseforge.com/wow/addons/action-bar-sync/localization",
+                text = "https://legacy.curseforge.com/wow/addons/toys-by-function/localization",
                 disable = false,
                 tip = {
                     disable = false,

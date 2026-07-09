@@ -55,6 +55,22 @@ function ns.gets:GetFramePosition(frameName)
 end
 
 --[[---------------------------------------------------------------------------
+    Function:   GetFrameSize
+    Purpose:    Retrieve the size of a frame from the profile database.
+    Parameters: frameName - the name of the frame
+-----------------------------------------------------------------------------]]
+function ns.gets:GetFrameSize(frameName)
+    local frameSize = ns.db.profile[ns.data.currentPlayerServer].ui.size[frameName]
+    if frameSize == nil then
+        frameSize = {
+            width = 300,
+            height = 300
+        }
+    end
+    return frameSize
+end
+
+--[[---------------------------------------------------------------------------
     Function:   GetObjectName
     Purpose:    Create frame object name with addon prefix.
 -----------------------------------------------------------------------------]]
@@ -79,6 +95,14 @@ end
 function ns.gets:GetToySortingOrderMainConfig()
     -- retrieve toy sorting order
     return ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.main
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   GetToySortingOrderFunctionFrame
+    Purpose:    Get the current toy sorting order for the function UI.
+-----------------------------------------------------------------------------]]
+function ns.gets:GetToySortingOrderFunctionFrame()
+    return ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.functions
 end
 
 --[[---------------------------------------------------------------------------
@@ -121,6 +145,27 @@ end
 -----------------------------------------------------------------------------]]
 function ns.gets:GetMoveToyTag()
     return ns.db.profile[ns.data.currentPlayerServer].moveToyTag
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   GetItemByID
+    Purpose:    Returns the toy data table for the given item ID, or nil.
+-----------------------------------------------------------------------------]]
+function ns.gets:GetItemByID(itemId)
+    local itemData = ns.db.global.toys.byItemId[itemId]
+
+    if itemData == nil then
+        local strItemId = tostring(itemId)
+        return ns.db.global.toys.byItemId[strItemId]
+    end
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   GetItemsByTag
+    Purpose:    Returns a table of { itemId } for all toys with the given tag.
+-----------------------------------------------------------------------------]]
+function ns.gets:GetItemsByTag(tag)
+    return ns.db.global.toys.byTag[tag] or {}
 end
 
 --[[---------------------------------------------------------------------------

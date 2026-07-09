@@ -66,6 +66,16 @@ function ns.sets:SetKeyPlayerServer()
 end
 
 --[[---------------------------------------------------------------------------
+    Function:   SetDevMode
+    Purpose:    Set the development mode status for the current character.
+-----------------------------------------------------------------------------]]
+function ns.sets:SetDevMode()
+    -- set the dev mode value
+    local previousValue = ns.db.char[ns.data.currentPlayerServerSpec].isDevMode
+    ns.db.char[ns.data.currentPlayerServerSpec].isDevMode = not previousValue
+end
+
+--[[---------------------------------------------------------------------------
     Function:   SetFilterTag
     Purpose:    Set the currently selected tag for filtering toys.
 -----------------------------------------------------------------------------]]
@@ -85,20 +95,16 @@ end
     Function:   SetToySortingOrderMainConfig
     Purpose:    Set the current toy sorting order for the main config.
 -----------------------------------------------------------------------------]]
-function ns.sets:SetToySortingOrderMainConfig(orderKey)
+function ns.sets:SetToySortingOrderConfigFrame(orderKey)
     ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.main = orderKey
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   SetOptionShowToyTooltips
-    Purpose:    Toggle the option for showing toy tooltips in the main config.
+    Function:   GetToySortingOrderFunctionFrame
+    Purpose:    Get the current toy sorting order for the function UI.
 -----------------------------------------------------------------------------]]
-function ns.sets:SetOptionShowToyTooltips()
-    local previousValue = ns.db.profile[ns.data.currentPlayerServer].showTooltips.main
-    ns.db.profile[ns.data.currentPlayerServer].showTooltips.main = not previousValue
-    --@debug@
-    -- ns:Print(("(SetOptionShowToyTooltips) Show Toy Tooltips option set to: %s; previous value: %s"):format(tostring(ns.db.profile[ns.data.currentPlayerServer].showTooltips.main), tostring(previousValue)))
-    --@end-debug@
+function ns.sets:GetToySortingOrderFunctionFrame(orderKey)
+    ns.db.profile[ns.data.currentPlayerServer].toySortingOrder.functions = orderKey
 end
 
 --[[---------------------------------------------------------------------------
@@ -123,19 +129,29 @@ end
                 yOfs - the y offset from the relative point
 -----------------------------------------------------------------------------]]
 function ns.sets:SetFramePosition(frameName, point, relativePoint, xOfs, yOfs)
-    -- create empty table for frame if it doesn't exist
-    if ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName] == nil then
-        ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName] = {}
-    end
-
-    -- Store position data
-    ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName].point = point
-    ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName].relativePoint = relativePoint
-    ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName].xOffset = xOfs
-    ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName].yOffset = yOfs
+    -- store position data
+    ns.db.profile[ns.data.currentPlayerServer].ui.positions[frameName] = {
+        point = point,
+        relativePoint = relativePoint,
+        xOffset = xOfs,
+        yOffset = yOfs
+    }
 
     -- return true since storage was successful
     return true
+end
+
+--[[---------------------------------------------------------------------------
+    Function:   SetFrameSize
+    Purpose:    Store the size of a frame in the profile database.
+    Parameters: frameName - the name of the frame
+-----------------------------------------------------------------------------]]
+function ns.sets:SetFrameSize(frameName, width, height)
+    -- store data
+    ns.db.profile[ns.data.currentPlayerServer].ui.size[frameName] = {
+        width = width,
+        height = height
+    }
 end
 
 function ns.sets:SetTagCheckedForMaint(id)

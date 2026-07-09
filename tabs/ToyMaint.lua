@@ -14,6 +14,15 @@ ns.toyMaint = {}
 -- track the toys the user has selected
 ns.toyMaint.selectedToys = {}
 
+-- dropdown id's
+ns.toyMaint.dropdownId = {
+    filter = 0,
+    move = 1,
+}
+
+-- store each frames height
+ns.toyMaint.toyScrollFrameHeight = {}
+
 --[[---------------------------------------------------------------------------
     Function:   LogEntry
     Purpose:    Add an entry to the move log for toy maintenance actions.
@@ -42,8 +51,10 @@ local function PopulateLogs()
     ns.data.dp.moveLog:Flush()
 
     -- insert log entries into the data provider
-    for _, logEntry in ipairs(ns.db.log.toyMove) do
-        ns.data.dp.moveLog:Insert(logEntry)
+    if ns.db.log.toyMove ~= nil then
+        for _, logEntry in ipairs(ns.db.log.toyMove) do
+            ns.data.dp.moveLog:Insert(logEntry)
+        end
     end
 end
 
@@ -88,6 +99,7 @@ local function PopulateToysByTag()
                         itemId = itemId,
                         name   = itemInfo.name or "",
                         icon   = itemInfo.icon,
+                        effect  = itemInfo.tooltip.effect,
                     }
                 else
                     -- TODO: Add an error log for missing data or issues.
@@ -130,7 +142,7 @@ local function CreateToyMainOptionsButton(parent)
         --@debug@
         -- ns:Print(("SetToySortingOrderMainConfig called with key: %s"):format(tostring(key)))
         --@end-debug@
-        ns.sets:SetToySortingOrderMainConfig(key)
+        ns.sets:SetToySortingOrderConfigFrame(key)
         PopulateToysByTag()
     end
 
@@ -144,7 +156,7 @@ local function CreateToyMainOptionsButton(parent)
 
     -- local functions for showing tooltips
     local function SetTooltips()
-        ns.sets:SetOptionShowToyTooltips()
+        ns.sets:SetTooltipOption(scrollKey)
     end
 
     local function IsTooltipEnabled()
@@ -207,23 +219,35 @@ local function PopulateRow(frame, data)
     frame.icon:SetTexture(data.icon or "Interface\\Icons\\inv_misc_questionmark")
 
     -- toy name on top right of icon
-    if not frame.toyName then
+    if frame.toyName == nil then
         frame.toyName = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         frame.toyName:SetJustifyH("LEFT")
         frame.toyName:SetPoint("TOPLEFT", frame.icon, "TOPRIGHT", padding, 0)
     end
     frame.toyName:SetText(data.name or "Unknown Toy")
 
-    -- tooltip data
-    -- if not frame.lines then
-    --     frame.lines = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    --     frame.lines:SetJustifyH("LEFT")
-    --     frame.lines:SetPoint("TOPLEFT", frame.toyName, "BOTTOMLEFT", 0, -padding)
-    --     frame.lines:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -padding, padding)
-    -- end
-    -- frame.lines:SetText(data.lines)
-    -- local newHeight = frame.toyName:GetStringHeight() + frame.lines:GetStringHeight() + (padding * 3)
-    -- frame:SetHeight(newHeight)
+    -- usage below name
+    if frame.toyUsage == nil then
+        frame.toyUsage = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        frame.toyUsage:SetJustifyH("LEFT")
+        frame.toyUsage:SetWordWrap(true)
+    end
+    if data.effect == nil then
+        frame.toyUsage:ClearAllPoints()
+    else
+        frame.toyUsage:SetPoint("TOPLEFT", frame.toyName, "BOTTOMLEFT", 0, -5)
+        frame.toyUsage:SetPoint("RIGHT", frame, "RIGHT", -padding, 0)
+        frame.toyUsage:SetText(data.effect or ns.L["No usage information available."])
+    end
+
+    -- set height of frame based on content; if no usage then just use name height + padding
+    local currentHeight = frame:GetHeight()
+    local newHeight = frame.toyName:GetStringHeight() + frame.toyUsage:GetStringHeight() + (padding * 2) + 5
+    newHeight = math.max(newHeight, currentHeight)
+    frame:SetHeight(newHeight)
+
+    -- store the height for scrolling since frames are hidden or show based on scrolling through the list
+    ns.toyMaint.toyScrollFrameHeight[data.itemId] = newHeight
 
     -- add tooltip functionality
     frame:SetScript("OnEnter", function(self)
@@ -265,7 +289,11 @@ local function CreateToyScrollList(parentFrame, positionFrame)
         --@debug@
         -- ns:Print(("Calculating height for dataIndex %d with name %s"):format(dataIndex, data.name or "Unknown"))
         --@end-debug@
-        return 32 + padding + padding
+        local height = ns.toyMaint.toyScrollFrameHeight[data.itemId]
+        if height == nil then
+            height = 32 + padding + padding
+        end
+        return height
     end)
 
     -- 3. Element initializer (called when a row becomes visible)
@@ -292,50 +320,53 @@ local function CreateToyScrollList(parentFrame, positionFrame)
 end
 
 --[[---------------------------------------------------------------------------
-    Function:   UpdateFilterBarTags
-    Purpose:    Update the filter bar dropdown with the current tags.
+    Function:   UpdateDropdowns
+    Purpose:    Update the dropdown with the current tags.
 -----------------------------------------------------------------------------]]
-local function UpdateFilterBarTags(dropdown)
+local function UpdateDropdowns()
     -- initialize drop down items with "none" option
-    local items = {["none"] = ns.L["No Tag Selected"]}
-    local itemOrder = {"none"}
-
-    -- -- determine tag order
-    -- local tagOrder = {}
-
-    -- -- does player profile have an order? if not use global settings
-    -- if ns.db.profile[ns.data.currentPlayerServer].tags and ns.db.profile[ns.data.currentPlayerServer].tags.order then
-    --     tagOrder = ns.db.profile[ns.data.currentPlayerServer].tags.order
-    -- end
-    -- if #tagOrder == 0 then
-    --    tagOrder = ns.db.global.tags.order
-    -- end
+    local items = {}
+    local itemOrder = {}
 
     -- populate drop down with all tags
+    local tagsInserted = false
     for tagID, tagData in pairs(ns.db.global.tags.order) do
         -- insert tags into items table by tag id
         items[tagID] = tagData.name or ns.L[tagID] or tagID
 
-        -- insert tag int item order table but add 1 to the order number to account for the "none" option at the beginning
-        local orderNbr = tagData.order + 1
-        table.insert(itemOrder, orderNbr, tagID)
+        -- insert tag
+        itemOrder[tagData.order] = tagID
+
+        -- confirm tag inserted
+        tagsInserted = true
 
         --@debug@
         -- ns:Print(("Filter Updated: %s (%s) with order %d"):format(tagID, ns.L[tagID] or tagID, tagData.order))
         --@end-debug@
     end
 
+    -- if no tags then add base value
+    if tagsInserted == false then
+        items["none"] = ns.L["No Tags"]
+        itemOrder[1] = "none"
+    end
+
+    -- update tag filter dropdown
+    local selectedItem = ns.gets:GetFilterTag() or ns.data.constants.defaults.tagFilter
+    ns.data.ui.dropdown.filterToysByTag:UpdateItems(itemOrder, items, selectedItem)
+
+    -- update tag move dropdown
+    selectedItem = ns.gets:GetMoveToyTag() or ns.data.constants.defaults.tagMove
+    ns.data.ui.dropdown.moveToys:UpdateItems(itemOrder, items, selectedItem)
+
     --@debug@
-    -- for idx, id in pairs(itemOrder) do
-    --     ns:Print(("Dropdown Item Order %d: %s"):format(idx, id))
+    -- for x, y in pairs(items) do
+    --     ns:Print(("Dropdown Item: %s (%s)"):format(x, y))
+    -- end
+    -- for x, y in ipairs(itemOrder) do
+    --     ns:Print(("Dropdown Order: %d - %s"):format(x, y))
     -- end
     --@end-debug@
-
-    -- get the last selected tag
-    local selectedItem = ns.gets:GetFilterTag() or "none"
-
-    -- trigger update
-    dropdown:UpdateItems(itemOrder, items, selectedItem)
 end
 
 --[[---------------------------------------------------------------------------
@@ -369,13 +400,13 @@ local function CreateLeftToyFrame(parentFrame)
     dropdownLabel:SetText(ns.L["Tag:"])
 
     -- initialize drop down items with "none" option
-    local items = {["none"] = ns.L["No Tag Selected"]}
+    local items = {["none"] = ns.L["No Tags"]}
 
     -- set initial tag order
     local itemOrder = {"none"}
 
     -- create dropdown
-    ns.data.ui.dropdown.filterToysByTag = ns:CreateDropdown(colInset, itemOrder, items, "none", ns.gets:GetObjectName("DropdownFilterTag"), function(key)
+    ns.data.ui.dropdown.filterToysByTag = ns:CreateDropdown(colInset, itemOrder, items, ns.gets:GetFilterTag(), ns.gets:GetObjectName("DropdownFilterTag"), function(key)
         -- track choice by character
         if key ~= "none" and key ~= nil then
             --@debug@
@@ -388,6 +419,7 @@ local function CreateLeftToyFrame(parentFrame)
             PopulateToysByTag()
         end
     end)
+    ns.data.ui.dropdown.filterToysByTag:SetID(ns.toyMaint.dropdownId.filter)
     ns.data.ui.dropdown.filterToysByTag:SetWidth(200)
 
     -- position the label and the dropdown
@@ -401,9 +433,6 @@ local function CreateLeftToyFrame(parentFrame)
 
     -- new scroll tech
     ns.data.ui.scroll.toysLeft = CreateToyScrollList(colInset, ns.data.ui.dropdown.filterToysByTag)
-
-    -- update the dropdown with the current tags
-    UpdateFilterBarTags(ns.data.ui.dropdown.filterToysByTag)
 
     -- return top level frame
     return colFrame
@@ -507,7 +536,7 @@ local function MoveToys()
     -- TODO: Implement UI enabling if necessary
 end
 
-local function CreateMoveToysFrame(parentFrame, relativeFrame)
+local function CreateToyFunctionFrame(parentFrame, relativeFrame)
     -- standard variables
     local padding = ns.data.constants.ui.generic.padding
 
@@ -542,7 +571,7 @@ local function CreateMoveToysFrame(parentFrame, relativeFrame)
     local itemOrder = {"none"}
 
     -- create dropdown
-    ns.data.ui.dropdown.moveToys = ns:CreateDropdown(colInset, itemOrder, items, "none", ns.gets:GetObjectName("DropdownTargetTag"), function(key)
+    ns.data.ui.dropdown.moveToys = ns:CreateDropdown(colInset, itemOrder, items, ns.gets:GetMoveToyTag(), ns.gets:GetObjectName("DropdownTargetTag"), function(key)
         -- track choice by character
         if key ~= "none" and key ~= nil then
             --@debug@
@@ -551,6 +580,7 @@ local function CreateMoveToysFrame(parentFrame, relativeFrame)
             ns.sets:SetMoveToyTag(key)
         end
     end)
+    ns.data.ui.dropdown.moveToys:SetID(ns.toyMaint.dropdownId.move)
     ns.data.ui.dropdown.moveToys:SetWidth(200)
 
     -- position the label and the dropdown
@@ -563,9 +593,6 @@ local function CreateMoveToysFrame(parentFrame, relativeFrame)
     -- add menu button for sorting
     -- local optionButton = CreateToyMainOptionsButton(colInset)
     -- optionButton:SetPoint("LEFT", ns.data.ui.dropdown.moveToys, "RIGHT", padding, 0)
-
-    -- update the dropdown with the current tags
-    UpdateFilterBarTags(ns.data.ui.dropdown.moveToys)
 
     -- button to trigger move of toys to new tag
     local moveButton = ns:CreateStandardButton(colInset, nil, ns.L["Move Toys"], nil, function(btnMoveToys)
@@ -686,22 +713,23 @@ local function BuildUI(parentFrame)
     local leftColumn = CreateLeftToyFrame(insetFrame)
 
     -- create the frame with the list functions
-    local moveToysFrame = CreateMoveToysFrame(insetFrame, leftColumn)
+    local moveToysFrame = CreateToyFunctionFrame(insetFrame, leftColumn)
+
+    -- update the dropdown with the current tags
+    UpdateDropdowns()
 
     -- create log frame
     local logFrame = CreateLogFrame(insetFrame, moveToysFrame)
+
+    -- populate the log frame
+    PopulateLogs()
 end
 
 local function OnShow_ToyMaintFrame(frameSelf)
     --@debug@
     -- ns:Print("OnShow triggered for Toy Maintenance tab")
     --@end-debug@
-    if ns.data.ui.dropdown.filterToysByTag ~= nil then
-        UpdateFilterBarTags(ns.data.ui.dropdown.filterToysByTag)
-    end
-    if ns.data.ui.dropdown.moveToys ~= nil then
-        UpdateFilterBarTags(ns.data.ui.dropdown.moveToys)
-    end
+    UpdateDropdowns()
 end
 
 --[[---------------------------------------------------------------------------

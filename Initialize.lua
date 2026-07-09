@@ -152,9 +152,17 @@ ns.data = {
 				minWidth = 600,
 				minHeight = 600
 			},
+			functionFrame = {
+				minWidth = 300,
+				minHeight = 300
+			}
 		},
 		objectNames = {
 			tabContentFrame = "TabContentFrame",
+		},
+		defaults = {
+			tagFilter = "fishing",
+			tagMove = "fishing",
 		},
 	},
 
@@ -297,13 +305,13 @@ end
 -----------------------------------------------------------------------------]]
 function ns:InstantiateDBChar(barID)
     -- create the character structure
-    if not ns.char then
-        ns.char = {}
+    if not ns.db.char then
+        ns.db.char = {}
     end
 
     -- currentBarData holds the last scan of data fetched from the action bars for the current character; hence stored in char
-    if not ns.char[ns.data.currentPlayerServerSpec] then
-        ns.char[ns.data.currentPlayerServerSpec] = {}
+    if not ns.db.char[ns.data.currentPlayerServerSpec] then
+        ns.db.char[ns.data.currentPlayerServerSpec] = {}
     end
 end
 
@@ -365,13 +373,30 @@ function ns:InstantiateDBProfile()
     if ns.db.profile[ns.data.currentPlayerServer].ui.positions == nil then
         ns.db.profile[ns.data.currentPlayerServer].ui.positions = {}
     end
+	if ns.db.profile[ns.data.currentPlayerServer].ui.size == nil then
+		ns.db.profile[ns.data.currentPlayerServer].ui.size = {}
+	end
+	ns.db.profile[ns.data.currentPlayerServer].ui.size.width = nil
+	ns.db.profile[ns.data.currentPlayerServer].ui.size.height = nil
 
     -- selected tag default
+	-- TODO: To be Removed
     if ns.db.profile[ns.data.currentPlayerServer].selectedTag == nil then
         ns.db.profile[ns.data.currentPlayerServer].selectedTag = "none"
     end
 
+	-- for storing selected choices in dropdowns
+	if ns.db.profile[ns.data.currentPlayerServer].dropdown == nil then
+		ns.db.profile[ns.data.currentPlayerServer].dropdown = {}
+	end
+
+	-- for storing sort order for scrolls
+	if ns.db.profile[ns.data.currentPlayerServer].sortOrder == nil then
+		ns.db.profile[ns.data.currentPlayerServer].sortOrder = {}
+	end
+
     -- toy sorting order defaults; default to A-Z sorting if not set
+	-- TODO: To be Removed
     if ns.db.profile[ns.data.currentPlayerServer].toySortingOrder == nil then
         ns.db.profile[ns.data.currentPlayerServer].toySortingOrder = {}
     end
@@ -383,9 +408,11 @@ function ns:InstantiateDBProfile()
     if ns.db.profile[ns.data.currentPlayerServer].showTooltips == nil then
         ns.db.profile[ns.data.currentPlayerServer].showTooltips = {}
     end
-    if ns.db.profile[ns.data.currentPlayerServer].showTooltips.main == nil then
-        ns.db.profile[ns.data.currentPlayerServer].showTooltips.main = true
-    end
+
+	-- show toy effects
+	if ns.db.profile[ns.data.currentPlayerServer].showToyEffects == nil then
+		ns.db.profile[ns.data.currentPlayerServer].showToyEffects = {}
+	end
 
     -- create initial value for storing custom tag settings
     if ns.db.profile[ns.data.currentPlayerServer].tags == nil then

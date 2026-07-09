@@ -50,7 +50,6 @@ function ns.ToyFunctions:LoadToySteps()
             ns:Print(("Toy Count: %s"):format(toyCount))
             ns.ToyFunctions:LoadToyList(toyCount)
             ns.ToyFunctions:LoadTagList()
-            ns.ToyFunctions:UpdateToyIndexes()
         end
     }
 
@@ -65,6 +64,46 @@ end
 -----------------------------------------------------------------------------]]
 function ns.ToyFunctions:NewToyEvent()
     ns:Print("Not Implemented Yet")
+end
+
+local function GetToyInfoFromTooltip(itemData)
+    local returnMe = {}
+
+    -- ns:Print(("Tooltip Type: %s, Value: %s"):format("ToyName", tostring(Enum.TooltipDataLineType.ToyName)))
+    -- ns:Print(("Tooltip Type: %s, Value: %s"):format("ToyText", tostring(Enum.TooltipDataLineType.ToyText)))
+    -- ns:Print(("Tooltip Type: %s, Value: %s"):format("ToyEffect", tostring(Enum.TooltipDataLineType.ToyEffect)))
+    -- ns:Print(("Tooltip Type: %s, Value: %s"):format("ToyDuration", tostring(Enum.TooltipDataLineType.ToyDuration)))
+    -- ns:Print(("Tooltip Type: %s, Value: %s"):format("ToyDescription", tostring(Enum.TooltipDataLineType.ToyDescription)))
+    -- ns:Print(("Tooltip Type: %s, Value: %s"):format("ToySource", tostring(Enum.TooltipDataLineType.ToySource)))
+    -- ns:Print(("Tooltip Type: %s, Value: %s"):format("UsageRequirement", tostring(Enum.TooltipDataLineType.UsageRequirement)))
+
+    -- loop over the tooltip lines to find the description
+    for _, line in ipairs(itemData.lines) do
+        if line.type == Enum.TooltipDataLineType.ItemBinding then
+            returnMe["binding"] = line.leftText
+        
+        -- name not needed since we have capture it from a previous call and stored in db; setting to nil so it is removed from the db
+        elseif line.type == Enum.TooltipDataLineType.ToyName then
+            -- returnMe["name"] = line.leftText
+            returnMe["name"] = nil
+        elseif line.type == Enum.TooltipDataLineType.ToyText then
+            returnMe["text"] = line.leftText
+        elseif line.type == Enum.TooltipDataLineType.ToyEffect then
+            returnMe["effect"] = line.leftText
+        elseif line.type == Enum.TooltipDataLineType.ToyDuration then
+            returnMe["duration"] = line.leftText
+        elseif line.type == Enum.TooltipDataLineType.ToyDescription then
+            returnMe["description"] = line.leftText
+        elseif line.type == Enum.TooltipDataLineType.ToySource then
+            returnMe["source"] = line.leftText
+        elseif line.type == Enum.TooltipDataLineType.FlavorText then
+            returnMe["flavor"] = line.leftText
+        elseif line.type == Enum.TooltipDataLineType.UsageRequirement then
+            returnMe["usage"] = line.leftText
+        end
+    end
+
+    return returnMe
 end
 
 --[[---------------------------------------------------------------------------
@@ -98,15 +137,8 @@ function ns.ToyFunctions:LoadToyList(toyCount)
         local canUseToy = C_ToyBox.IsToyUsable(toyItemId)
 
         -- get tooltip data
-        -- local tooltipData = C_TooltipInfo.GetItemByID(toyItemId)
-        -- local lines = ""
-        -- for _, line in ipairs(tooltipData.lines) do
-        --     if lines == "" then
-        --         lines = line.leftText or ""
-        --     else
-        --         lines = lines .. "\n" .. (line.leftText or "")
-        --     end
-        -- end
+        local tooltipData = C_TooltipInfo.GetToyByItemID(toyItemId)
+        local toyTooltipInfo = GetToyInfoFromTooltip(tooltipData)
 
         -- instantiate local toy data table
         local toyInfo = {
@@ -119,19 +151,16 @@ function ns.ToyFunctions:LoadToyList(toyCount)
             hasFanfare = hasFanfare or currentToyData.hasFanfare or false,
             itemQuality = itemQuality or currentToyData.itemQuality or ns.L["Unknown"],
             canUse = canUseToy or currentToyData.canUse or false,
-            status = "Found",
+            status = ns.L["Found"],
             tags = currentToyData.tags or defaultTags,
-            -- lines = lines,
-            -- ["C_TooltipInfo.GetItemByID"] = {
-            --     type = tooltipData.type or currentToyData["C_TooltipInfo.GetItemByID"].type or ns.L["Unknown"],
-            --     dataInstanceID = tooltipData.dataInstanceID or currentToyData["C_TooltipInfo.GetItemByID"].dataInstanceID or ns.L["Unknown"],
-            --     lines = tooltipData.lines or currentToyData["C_TooltipInfo.GetItemByID"].lines or ns.L["Unknown"],
-            -- }
+            tooltip = toyTooltipInfo,
         }
 
         -- update status if no data returned from API
-        if not toyName then
-            toyInfo.status = "No data returned; previous data retained if available."
+        if currentToyData ~= nil and toyName == nil then
+            toyInfo.status = ns.L["No data returned; previous data retained."]
+        elseif toyName == nil then
+            toyInfo.status = ns.L["No data returned; previous data not available."]
         end
 
         -- insert into table
@@ -148,7 +177,7 @@ function ns.ToyFunctions:LoadTagList()
         -- loop over those tags
         for idx, id in pairs(ns.data.DefaultTags) do
             -- check if the tag exists, if not add it
-            if not ns.db.global.tags.order[id] then
+            if ns.db.global.tags.order[id] == nil then
                 -- if not, copy it in from the source of record; order is determined by the index of the tag; always add as enabled by default
                 ns.db.global.tags.order[id] = {
                     order = idx,
@@ -187,20 +216,4 @@ function ns.ToyFunctions:UpdateToyIndexes()
     --         table.insert(ns.db.global.toys.byTag[tag], data.itemId)
     --     end
     -- end
-end
-
---[[---------------------------------------------------------------------------
-    Function:   GetByItemID
-    Purpose:    Returns the toy data table for the given item ID, or nil.
------------------------------------------------------------------------------]]
-function ns.ToyFunctions:GetByItemId(itemId)
-    return ns.db.global.toys.byItemId[itemId] or {}
-end
-
---[[---------------------------------------------------------------------------
-    Function:   GetByTag
-    Purpose:    Returns a table of { itemId } for all toys with the given tag.
------------------------------------------------------------------------------]]
-function ns.ToyFunctions:GetByTag(tag)
-    return ns.db.global.toys.byTag[tag] or {}
 end

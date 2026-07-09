@@ -42,7 +42,7 @@ L["Show Toy Tooltips"] = "Show Toy Tooltips"
 -- left frame to show filtered toys
 L["Filtered List of Toys by Tag:"] = "Filtered List of Toys by Tag:"
 L["Tag:"] = "Tag:"
-L["No Tag Selected"] = "No Tag Selected"
+L["No Tags"] = "No Tags"
 
 -- Mini Map Button
 L["Left-click open main config window."] = "Left-click open main config window."
